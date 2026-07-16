@@ -1,185 +1,33 @@
-# Formato visual — a especificação
+# Formato visual sobre o nucleo OKF
 
-Este é o "nessa estrutura". O objetivo do formato é simples: pegar conhecimento (geralmente um vídeo/áudio/texto dentro de um notebook do NotebookLM) e deixá-lo **digerível, bonito e satisfatório de ler** — sem perder nada.
+O OKF define a estrutura persistida; esta referencia define a camada editorial da `sintese.md` sem alterar a conformidade.
 
-## Índice
-1. Princípio da fidelidade
-2. Frontmatter mínimo
-3. A sequência lógica das seções
-4. Voz e parágrafos
-5. Catálogo de callouts
-6. Padrões de tabela
-7. Âncoras de emoji
-8. Padrões de Mermaid + cuidados de sintaxe
-9. Portabilidade por destino
+## Ordem recomendada
 
----
+1. `# Titulo` claro, com emoji se ajudar.
+2. Callout `abstract` para TL;DR.
+3. Callout `info` para proveniencia e limites da extracao.
+4. Mecanismo ou ideia central, com tabela ou fluxo quando util.
+5. Desenvolvimento e exemplos fieis as fontes.
+6. `## Como aplicar` com acoes praticas.
+7. `## Mapa` com mindmap Mermaid quando fizer sentido.
+8. `## Cola rapida` em tabela.
+9. `# Citations` com links para conceitos de fonte e referencias externas.
 
-## 1. Princípio da fidelidade
+## Portabilidade
 
-A nota é um destilado **fiel**, não um resumo raso. Antes de escrever, inventarie os conceitos da fonte (ideias, metáforas, números, exemplos, frases marcantes) e garanta que cada um reaparece. Na dúvida entre cortar e manter, mantenha. O formato existe pra deixar o conteúdo *mais* fácil de absorver — não pra encurtá-lo.
+- O conteudo essencial deve sobreviver sem Mermaid e sem callouts.
+- Use links Markdown padrao; a geracao nao usa wikilinks.
+- Callouts degradam para blockquotes em leitores genericos.
+- No Notion, use blocos nativos apenas como espelho do bundle local.
 
-## 2. Frontmatter mínimo
+## Mermaid seguro
 
-Para destinos markdown (Obsidian ou `.md` solto), use um frontmatter enxuto e genérico:
+- Nunca use `&quot;`, `&amp;`, `&lt;`, `&gt;` ou entidades HTML.
+- Use `<br/>`, nao `\n`, dentro de nos.
+- Em `mindmap`, nao use aspas nos rotulos e evite caracteres estruturais.
+- Prefira diagramas pequenos que expliquem uma relacao real.
 
-```yaml
----
-titulo: <título da nota>
-fonte: <notebook / vídeo / autor de origem>
-data: <AAAA-MM-DD>
----
-```
+## Voz
 
-Não adicione `tags`, `hub`, `aliases` ou campos de índice por conta própria. Se o usuário tiver um sistema próprio (ex.: um vault Obsidian com convenções), pergunte ou siga **só o que ele pedir**. No Notion, o frontmatter não se aplica — vira propriedades da página.
-
-## 3. A sequência lógica das seções
-
-A espinha dorsal (adapte os títulos ao conteúdo; **omita** o que não couber):
-
-| # | Seção | Recurso visual típico |
-|---|---|---|
-| 1 | `# 🔖 Título` | H1 + emoji-âncora |
-| 2 | TL;DR | `> [!abstract]` |
-| 3 | Fonte / contexto | `> [!info]` |
-| 4 | Ideia central / mecanismo | tabela comparativa e/ou diagrama |
-| 5 | Conceitos / metáforas | **Mermaid** (flowchart) |
-| 6 | Operacional ("como fazer") | callouts `tip` / `warning` / `example` |
-| 7 | Camada profunda *(se houver)* | `> [!abstract]` + bullets |
-| 8 | `## 🎯 Como aplicar` | bullets acionáveis (ou `> [!success]`) |
-| 9 | `## 🗺️ Mapa` | **Mermaid** `mindmap` |
-| 10 | `## 📌 Cola rápida` | tabela-resumo |
-
-**Adapte ao tipo de conteúdo.** Um framework de mentalidade usa "mecanismo → metáforas → operacional → filosofia". Um tutorial técnico usa "o que é → passo a passo → armadilhas → quando usar". Uma entrevista usa "teses principais → argumentos → contrapontos". A *sequência* (visão geral → desenvolvimento visual → aplicação → mapa → cola) se mantém; os rótulos mudam.
-
-Separe blocos grandes com `---` e feche sempre com a cola rápida — dá sensação de fechamento.
-
-## 4. Voz e parágrafos
-
-- **PT-BR**, direto, caloroso, com personalidade — "digerível e divertido", não acadêmico.
-- Parágrafos curtos. Uma ideia por parágrafo. **Negrito** no termo-chave de cada ponto.
-- Use a 2ª pessoa quando for instrução/aplicação ("você decide...", "comece por...").
-- Cite frases de impacto da fonte como `> [!quote]` (com o autor), em vez de parafrasear tudo.
-- Escreva na voz de quem está ensinando um amigo — sem floreio, sem encher linguiça.
-
-## 5. Catálogo de callouts
-
-Callouts são blockquotes com um marcador `> [!tipo]`. Use o tipo que combina com a função — a cor e o ícone ajudam a escanear:
-
-| Callout | Use para |
-|---|---|
-| `> [!abstract]` | TL;DR no topo e o "mapa"/síntese |
-| `> [!info]` | fonte/contexto (de onde veio o conhecimento) |
-| `> [!quote]` | falas marcantes do autor (com atribuição) |
-| `> [!tip]` | o hack, o atalho, a boa prática |
-| `> [!warning]` | risco, pegadinha, erro comum |
-| `> [!danger]` | a inversão crítica, o "não faça isso" |
-| `> [!example]` | casos concretos, histórias, demonstrações |
-| `> [!success]` | takeaways / como aplicar |
-
-Sintaxe (cada linha começa com `> `; deixe uma linha `>` em branco entre parágrafos):
-
-```markdown
-> [!abstract] TL;DR — a ideia em uma frase
-> O recado central, curto e direto.
->
-> Um reforço opcional em outra linha.
-```
-
-Para listas dentro do callout, prefixe cada item com `> `:
-
-```markdown
-> [!example] Casos reais
-> - Primeiro exemplo concreto.
-> - Segundo exemplo concreto.
-```
-
-## 6. Padrões de tabela
-
-Tabelas são ótimas para comparação e para a cola final. Padrões que funcionam bem:
-
-- **Comparação A × B** (ex.: o jeito errado × o jeito certo, antes × depois).
-- **Estados / níveis** (ex.: 4 estágios de algo → consequência de cada um).
-- **Cola rápida**: 2 colunas — `Pilar | Em uma frase` — resumindo a nota inteira.
-
-Use **negrito** na primeira coluna e emojis pra dar âncora visual.
-
-## 7. Âncoras de emoji
-
-Um emoji no começo de cada `##` cria pontos de fixação pro olho. Escolha emojis que *significam* a seção (🧠 mecanismo, 🚪/🧩 conceito, ⚙️ operacional, 🎯 aplicação, 🗺️ mapa, 📌 cola). Não exagere no corpo do texto — âncora nos títulos e marcadores pontuais bastam.
-
-## 8. Padrões de Mermaid + cuidados de sintaxe
-
-Mermaid renderiza nativamente no Obsidian e no Notion (code block). São os "gráficos" da nota. Use 2-4 por nota: um ou dois fluxos pros conceitos centrais e **sempre** um `mindmap` no fim.
-
-### Cuidados que evitam diagrama quebrado
-- **Quebra de linha em nó:** use `<br/>`, **nunca** `\n`.
-- **Rótulos entre aspas** sempre que tiverem espaço, acento ou pontuação: `A["texto aqui"]`.
-- **Rótulos de aresta:** `A -->|"texto"| B` (sólido) ou `A -.->|"texto"| B` (pontilhado) ou `A ==>|"texto"| B` (grosso).
-- **No `mindmap`, evite caracteres especiais nos rótulos** (`( ) [ ] { } = : / < >`) — eles quebram o parser. Reformule ("Recaída: 2 passos" → "Recaída custa o dobro"). Acentos são OK.
-- Mantenha simples. Diagrama que não renderiza é pior que diagrama nenhum.
-
-### Template — fluxo de contraste (flowchart)
-```mermaid
-flowchart LR
-    A["🧲 Opção A<br/>descrição"] -.->|"fraco"| R{{"🎯 Resultado"}}
-    B["🔥 Opção B<br/>descrição"] ==>|"forte"| R
-```
-
-### Template — fluxo de processo / metáfora
-```mermaid
-flowchart LR
-    P1["🚪 Estado inicial"] ==>|"ação decisiva"| P2["✅ Estado desejado"]
-    P1 -.->|"erro comum"| X["😈 recaída<br/>te puxa de volta"]
-    X -.-> P1
-```
-
-### Template — cadeia / sequência
-```mermaid
-flowchart LR
-    M["🎯 Meta"] --> I["🧬 Identidade"] --> Rot["🔁 Rotina"]
-    Rot -.->|"sustenta"| M
-```
-
-### Template — mindmap de fechamento (sempre rótulos limpos)
-```mermaid
-mindmap
-  root((Tema central))
-    Ramo um
-      Subideia A
-      Subideia B
-    Ramo dois
-      Subideia C
-      Subideia D
-    Ramo três
-      Subideia E
-```
-
-## 9. Portabilidade por destino
-
-O mesmo conteúdo, sintaxe adaptada ao alvo:
-
-| Recurso | Obsidian | `.md` solto | Notion |
-|---|---|---|---|
-| Mermaid | nativo ✅ | depende do viewer | code block `mermaid` ✅ |
-| Callouts `> [!...]` | nativo ✅ | vira blockquote simples | mapear p/ **callout nativo** do Notion |
-| Tabelas / emoji / blockquote | ✅ | ✅ | ✅ |
-| Wikilinks `[[...]]` | só Obsidian | evite | não usar |
-| Frontmatter YAML | ✅ | ✅ (inerte) | vira propriedades |
-
-**Regra geral:** Obsidian e `.md` solto → markdown Obsidian-flavored (callouts + Mermaid). Notion → blocos nativos via conector (se disponível). Destino desconhecido → markdown portátil, ciente de que callouts degradam para blockquotes (continua legível). Nunca use `[[wikilinks]]` ou `#hub/tags` fora de um vault Obsidian que os use.
-
-
-## Pre-flight de codificacao e Mermaid
-
-Antes de entregar:
-
-1. Grave o Markdown em UTF-8. Se vier de CLI/API, capture bytes e decodifique explicitamente como UTF-8; nao passe o conteudo por um terminal com code page desconhecido.
-2. Pare se houver `?` dentro de palavras, `??`, `?`, `?`, `?`, `?` ou `??`; reextraia a fonte e regrave o arquivo.
-3. Dentro de Mermaid, nunca use `&quot;`, `&amp;`, `&lt;` ou `&gt;`.
-4. Em `mindmap`, escreva rotulos simples sem aspas: `Claude Code`, nao `"Claude Code"`.
-5. Rode `scripts/validar_nota.py` e corrija todo erro antes da entrega.
-
-## Perfis e frontmatter
-
-O frontmatter minimo com titulo, fonte e data e o exemplo dos perfis `portable` e `obsidian`; ele nao e universal. No perfil `okf`, siga `formato-okf.md`: o campo `type` e obrigatorio, a proveniencia e explicita e links internos usam Markdown relativo. Mermaid e callouts permanecem extensoes visuais portaveis; fora do Obsidian, callouts devem continuar legiveis como blockquotes.
+Escreva em PT-BR, com paragrafos curtos, termos-chave em negrito e sem floreio. Fidelidade vem antes de compressao: preserve conceitos, limites, exemplos e discordancias das fontes.

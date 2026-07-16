@@ -1,53 +1,15 @@
 ---
-type: research-note
-date: 2026-07-16
-source: NotebookLM - Guia de pesquisa
+type: Template
+title: Modelo de bundle OKF
+description: Ponte para o exemplo completo de bundle gerado pela skill.
+tags: [okf, template]
+timestamp: 2026-07-16T12:00:00-03:00
 ---
 
-# Nota de pesquisa visual
+# Modelo de bundle OKF
 
-> [!abstract] TL;DR
-> Uma nota OKF preserva um nucleo persistido simples e usa recursos visuais apenas para facilitar a leitura.
+Use [`exemplo-bundle-okf.md`](./exemplo-bundle-okf.md) para ver a estrutura completa de indice, log, sintese e fontes.
 
-> [!info] Proveniencia
-> Gerada a partir do notebook conhecido como "Guia de pesquisa" em 2026-07-16.
+# Citations
 
-## Mecanismo
-
-| Pilar | Papel |
-|---|---|
-| **Nucleo OKF** | Garante frontmatter, `type`, H1 e links relativos. |
-| **Extensoes visuais** | Melhoram leitura sem substituir o conteudo essencial. |
-
-```mermaid
-flowchart LR
-    A["Fonte conhecida"] --> B["Nota OKF"]
-    B --> C["Leitura portatil"]
-```
-
-## Aplicacao
-
-Leia a [nota relacionada](../referencias/nota-relacionada.md) quando ela existir no bundle. Nao use wikilinks.
-
-## Mapa
-
-```mermaid
-mindmap
-  root((Nota OKF))
-    Nucleo
-      type obrigatorio
-      Links relativos
-    Visual
-      Callouts
-      Mermaid
-```
-
-## Cola rapida
-
-| Verificar | Resultado esperado |
-|---|---|
-| `type` | Campo nao vazio no frontmatter |
-| Links | Markdown relativo |
-| Visual | Opcional e compreensivel fora do Obsidian |
-
-> Nucleo OKF: UTF-8, frontmatter com `type`, H1, proveniencia e links relativos. Extensoes visuais: Mermaid e callouts.
+[1] [Especificacao OKF](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)

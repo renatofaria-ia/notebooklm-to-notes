@@ -1,99 +1,84 @@
 ---
 name: notebooklm-to-notes
-description: Converta o conteúdo de um notebook do NotebookLM em uma nota visual, fiel e digerível com frontmatter, TL;DR, Mermaid, callouts, tabelas, emojis e mindmap. Use quando o usuário quiser extrair, transferir ou transformar conhecimento de um notebook do NotebookLM para Obsidian, Markdown ou Notion, inclusive ao pedir "jogar o conhecimento do notebook X" ou "notebooklm-to-notes".
+description: Extraia conhecimento de notebooks do NotebookLM e entregue bundles Open Knowledge Format (OKF) 0.1 visuais, com sintese, conceitos por fonte, citacoes, indice, log, Mermaid e callouts. Use quando o usuario quiser transformar, exportar ou persistir um notebook do NotebookLM no Obsidian, em Markdown ou no Notion.
 ---
 
-# notebooklm-to-notes — do NotebookLM para uma nota visual (no destino que o usuário escolher)
+# notebooklm-to-notes
 
-Esta skill pega o conhecimento de um **notebook do NotebookLM** e o reescreve naquele **formato visual e digerível** (TL;DR + diagramas Mermaid + callouts + tabelas + emojis + mindmap), entregando **onde o usuário quiser**: numa pasta do Obsidian, como arquivo `.md` solto, ou no Notion via conector.
+Gere sempre um **bundle OKF 0.1** como fonte de verdade. Preserve a experiencia editorial: PT-BR claro, TL;DR, contexto, diagramas Mermaid, callouts, tabelas, emojis, mapa mental e cola rapida.
 
-O princípio que orienta tudo: **o formato é a constante; o destino é variável.** Não assuma nenhuma estrutura de vault — o usuário decide a pasta, o nome e (se tiver) as convenções próprias dele. A skill entrega o conteúdo no formato; ela não impõe a organização de ninguém.
+## Referencias obrigatorias
 
-## Pré-requisitos
+Antes de escrever, leia:
 
-O fluxo usa a CLI do NotebookLM (quando houver uma skill `notebooklm`, use-a para os detalhes dos comandos). Antes de tudo, garanta que há sessão ativa:
+- `references/formato-okf.md` para contrato, estrutura e citacoes OKF.
+- `references/formato-visual.md` para a camada editorial e Mermaid.
+- `references/exemplo-bundle-okf.md` para o bundle completo esperado.
 
-- `notebooklm auth check` — se falhar, rode `notebooklm login` (abre o navegador; o usuário loga e o fluxo salva a sessão). Se a janela travar, geralmente é uma instância do Chromium já aberta segurando o perfil — peça pro usuário fechá-la antes de tentar de novo.
+## 1. Extrair com fidelidade
 
-## Visão geral — 3 fases
+1. Confirme a sessao com `notebooklm auth check --test --json`.
+2. Liste notebooks e fontes; use o ID completo do notebook.
+3. Leia `source fulltext` de cada fonte pronta. Registre fontes com erro sem inventar conteudo.
+4. Inventarie conceitos, exemplos, numeros, limites e divergencias antes de redigir.
 
-1. **Extrair** o conhecimento do notebook (com fidelidade total).
-2. **Formatar** no padrão canônico (estrutura + sequência lógica + artes visuais + voz).
-3. **Entregar** no destino escolhido, adaptando a sintaxe ao alvo.
+## 2. Definir o bundle
 
-## Fase 1 — Localizar e extrair (fidelidade total)
+- Se o usuario indicar uma pasta, crie nela um diretorio com slug do notebook.
+- Se indicar um arquivo `.md`, crie uma pasta irma com o mesmo nome sem extensao; nao entregue Markdown solto fora do bundle.
+- Nao imponha pasta de vault, tags proprietarias, hubs ou wikilinks.
 
-A qualidade da nota depende de capturar **tudo** o que a fonte ensina. Não resuma cedo demais — primeiro entenda o material inteiro.
+Crie esta estrutura minima:
 
-1. `notebooklm list --json` → ache o notebook pelo título (pergunte ao usuário qual, se houver ambiguidade).
-2. `notebooklm source list --notebook <id> --json` → liste as fontes.
-3. Para cada fonte: `notebooklm source fulltext <source_id> --notebook <id> --json` → leia o texto integral. É a base da fidelidade.
-   - `notebooklm ask "..."` serve como apoio (sínteses temáticas, tirar dúvidas), mas não substitui o `fulltext`.
-4. Antes de escrever, faça um **inventário dos conceitos** — cada ideia, metáfora, número e exemplo importante precisa reaparecer na nota. Fidelidade vem antes de brevidade.
+```text
+<bundle>/
+  index.md
+  log.md
+  sintese.md
+  sources/
+    index.md
+    <fonte>.md
+```
 
-## Fase 2 — Formatar no padrão canônico
+## 3. Escrever conceitos OKF
 
-Antes de escrever a nota, **leia os dois arquivos de referência** — eles são o coração da skill e definem o "nessa estrutura":
+Todo `.md` que nao seja `index.md` ou `log.md` precisa de YAML UTF-8 sem BOM com:
 
-- `references/formato-visual.md` — a especificação do formato: sequência lógica das seções, frontmatter mínimo, voz/parágrafos, catálogo de callouts, padrões de Mermaid (com os cuidados de sintaxe que evitam diagramas quebrados) e notas de portabilidade por destino.
-- `references/exemplo-gold.md` — um exemplo-ouro completo, pra você ver o padrão na prática e mirar nesse nível de acabamento.
 
-Monte a nota seguindo a **sequência lógica** abaixo. Adapte os títulos ao conteúdo e **omita** as seções que não fizerem sentido (nem toda fonte tem "metáfora" ou "filosofia" — uma fonte técnica pode trocar isso por "passo a passo" e "armadilhas"):
 
-1. `# 🔖 Título` — H1 com um emoji-âncora.
-2. `> [!abstract] TL;DR` — a ideia central em 1-2 frases.
-3. `> [!info]` — a fonte/contexto (de qual notebook/vídeo veio).
-4. **Ideia central / mecanismo** — a tese, com uma tabela comparativa ou diagrama se ajudar a fixar.
-5. **Conceitos / metáforas** — onde entram os **diagramas Mermaid** (fluxos).
-6. **Operacional** — o "como fazer", em callouts (`tip` / `warning` / `example`).
-7. **Camada mais profunda** *(se houver)* — princípios, filosofia, o "porquê".
-8. `## 🎯 Como aplicar` — takeaways acionáveis.
-9. `## 🗺️ Mapa` — um **mindmap** Mermaid do todo (um fechamento visual satisfatório).
-10. `## 📌 Cola rápida` — tabela-resumo de uma olhada.
+Use as chaves reais abaixo, em minusculas:
 
-Aplique o toolkit visual **com critério**: cada diagrama, tabela e callout precisa ajudar a entender — enfeite gratuito polui. Voz: PT-BR, clara, na pegada "digerível e divertida". Siga os cuidados de sintaxe de Mermaid de `formato-visual.md` pra não gerar diagrama quebrado.
+```yaml
+---
+type: NotebookLM Summary
+title: <titulo humano>
+description: <resumo em uma frase>
+tags: [notebooklm, <tema>]
+timestamp: <ISO 8601>
+notebook_id: <id conhecido>
+source_status: ready
+---
+```
 
-## Fase 3 — Entregar no destino
+- Em `sintese.md`, use `type: NotebookLM Summary`, links `/sources/<arquivo>.md` e `# Citations` apontando para os conceitos de fonte.
+- Em cada fonte, use `type: NotebookLM Source`, `source_id`, `source_status` e `resource` somente quando a URL for conhecida. Termine com `# Citations`; nao invente URL, ID ou data.
+- Use links Markdown padrao. Prefira links absolutos relativos a raiz do bundle, como `/sources/video.md`; links relativos tambem sao validos. Nunca use `file://`, caminhos de disco ou wikilinks na geracao.
+- `index.md` raiz deve ter somente `okf_version: "0.1"` no frontmatter e listar itens com descricao. `sources/index.md` nao tem frontmatter. `log.md` nao tem frontmatter e registra a criacao em data ISO, mais recente primeiro.
 
-Se o usuário não disse onde quer, **pergunte**: pasta no Obsidian? arquivo `.md` solto (e onde)? Notion?
+## 4. Camada visual
 
-### Pasta no Obsidian ou arquivo `.md` solto
-- Escreva o arquivo no caminho que o usuário indicar. Use **frontmatter mínimo**: `titulo`, `fonte`, `data`. Nada de tags, `hub` ou índice — a menos que o usuário tenha esse sistema **e peça**.
-- O markdown é Obsidian-flavored: callouts (`> [!...]`) e Mermaid renderizam nativamente no Obsidian, sem plugin (basta abrir em Reading view ou Live Preview).
-- Rode o validador: `python <skill-dir>/scripts/validar_nota.py <arquivo.md>` e corrija o que ele apontar. Se o ambiente só expuser `python3`, use esse comando equivalente.
-- **Pre-entrega obrigatoria:** grave em UTF-8 e execute o validador. Ao consumir saida de CLI/API, capture bytes e decodifique explicitamente como UTF-8; nunca deixe o code page do terminal recodificar a saida.
+A sintese mantem esta sequencia quando aplicavel: H1, TL;DR, proveniencia, mecanismo, desenvolvimento, aplicacao, mapa, cola rapida e citacoes.
 
-### Notion (via conector)
-- O Notion **não** entende a sintaxe `> [!...]` do Obsidian. Se houver um conector (MCP) do Notion disponível nesta sessão, crie a página mapeando a estrutura para **blocos nativos do Notion**: callout nativo no lugar dos callouts, bloco de código `mermaid` para os diagramas, tabela do Notion e toggles para seções longas.
-- Se **não** houver conector do Notion, diga isso claramente e ofereça: (a) entregar o markdown portátil pro usuário colar no Notion, ou (b) ajudar a conectar o MCP do Notion. Nunca finja que existe um conector que não está disponível.
+Mermaid e callouts sao extensoes visuais: o conteudo essencial deve permanecer claro em Markdown puro. Nunca use entidades HTML dentro de Mermaid. Em `mindmap`, use rotulos simples sem aspas.
 
-### Destino genérico / outro app
-- Entregue **markdown portátil**: Mermaid, tabelas, emojis e blockquotes são universais; os callouts degradam para blockquotes simples em viewers que não os suportam — segue legível, sem problema.
+## 5. Entregar
 
-Ao final, **reporte**: o que foi criado e onde, um mini-checklist de fidelidade (os principais conceitos cobertos) e peça pro usuário conferir o render.
+1. Instale dependencias: `python -m pip install -r requirements.txt`.
+2. Valide o bundle: `python scripts/validar_nota.py --bundle <bundle>`.
+3. Corrija todos os erros antes da entrega; avisos OKF sao orientacoes de qualidade e nao bloqueiam o bundle.
+4. Para Notion, crie primeiro o bundle local. Se houver conector, publique um espelho em blocos nativos e informe o caminho da fonte de verdade. Sem conector, entregue o bundle local.
+5. Reporte caminho, fontes prontas e com erro, conceitos criados, validacao e extensoes visuais usadas.
 
-## Anti-padrões (evite)
+## Compatibilidade
 
-- **Perder conteúdo.** Fidelidade > brevidade. Na dúvida entre cortar e manter, mantenha.
-- **Assumir a estrutura do vault de alguém.** Sem pastas fixas, sem `#hub/...`, sem índice automático — a menos que o usuário tenha e peça.
-- **Mermaid quebrado.** Use `<br/>` (não `\n`) pra quebra de linha; no `mindmap`, evite `( ) [ ] = : /` nos rótulos. Detalhes e exemplos em `formato-visual.md`.
-- **HTML dentro do Mermaid.** Nunca use `&quot;`, `&amp;`, `&lt;` ou `&gt;`. Em `mindmap`, use rotulos simples, sem aspas.
-- **Texto degradado.** Nunca entregue `?` dentro de palavras, `??`, `?` ou mojibake. Reextraia a fonte em UTF-8 e regrave o arquivo.
-- **Inventar a fonte.** Cite de qual notebook/fonte o conhecimento veio.
-- **Pular a validação** em destinos markdown.
-
-## Arquivos desta skill
-
-- `references/formato-visual.md` — a especificação do formato (leia na Fase 2).
-- `references/exemplo-gold.md` — exemplo-ouro completo (leia na Fase 2).
-- `scripts/validar_nota.py` — validador estrutural do markdown gerado (rode na Fase 3).
-
-## Perfis de saida
-
-Antes de escrever, pergunte ou infira o perfil: `portable`, `obsidian` ou `okf`. O padrao permanece `portable` quando nao houver escolha explicita.
-
-- `portable`: mantenha Markdown visual generico e o frontmatter minimo atual como exemplo.
-- `obsidian`: mantenha callouts e Mermaid; use wikilinks somente quando o usuario pedir e o vault os utilizar.
-- `okf`: leia `references/formato-okf.md` e `references/formato-visual.md`. Aplique o contrato OKF 0.1: UTF-8 sem BOM, frontmatter com `type` nao vazio, H1, proveniencia explicita, links Markdown relativos e nenhum wikilink. Nunca entregue `index.md` ou `log.md` na raiz do bundle. Nao imponha pastas, hubs, tags ou indices. Rode `python scripts/validar_nota.py --profile okf --vault-root <bundle> <arquivo>` quando a raiz for conhecida; caso contrario, omita apenas `--vault-root`.
-
-No perfil `okf`, informe que Mermaid e callouts foram usados como extensoes visuais. Eles nao podem ser necessarios para entender o conteudo essencial.
+`python scripts/validar_nota.py --profile portable <arquivo>` continua disponivel apenas para validar artefatos antigos. Nao o use para novas entregas.

@@ -1,40 +1,55 @@
 # notebooklm-to-notes
 
-Skill para transformar conhecimento de notebooks do NotebookLM em notas Markdown visuais, fieis e faceis de consultar.
+Skill para transformar notebooks do NotebookLM em **bundles Open Knowledge Format (OKF) 0.1** visuais, rastreaveis e prontos para leitura humana ou por agentes.
 
-## Perfis de saida
+Cada entrega cria uma sintese e um conceito por fonte, com citacoes, `index.md`, `log.md`, Mermaid, callouts, tabelas e Markdown em UTF-8 sem BOM. O bundle local e a fonte de verdade; Obsidian e Notion sao destinos de leitura ou espelho.
 
-- `portable` (padrao): Markdown visual generico e portatil. Mantem a compatibilidade atual.
-- `obsidian`: Markdown visual para Obsidian. Callouts e Mermaid sao permitidos. Use wikilinks somente quando o usuario pedir e o vault os utilizar.
-- `okf`: Markdown visual compativel com o nucleo OKF 0.1. Mermaid e callouts seguem permitidos como extensoes visuais documentadas; o contrato persistido exige YAML valido, `type`, H1, proveniencia explicita e links Markdown relativos.
-
-O perfil `okf` e uma escolha explicita. Ele nao altera o comportamento padrao dos perfis `portable` e `obsidian`.
-
-## Como usar
+## Contrato de saida
 
 ```text
-Use $notebooklm-to-notes para transformar o notebook "Curso X" em uma nota portable em C:\Notas\curso-x.md.
-Use $notebooklm-to-notes com perfil okf para entregar uma nota no caminho informado pelo bundle.
+<bundle>/
+  index.md                 # navegacao progressiva + okf_version: "0.1"
+  log.md                   # historico datado
+  sintese.md               # NotebookLM Summary visual
+  sources/
+    index.md
+    <fonte>.md             # NotebookLM Source por fonte
 ```
+
+Conceitos usam frontmatter YAML com `type` obrigatorio e os campos recomendados `title`, `description`, `resource` quando conhecido, `tags` e `timestamp`. Citacoes ficam em `# Citations`. Links internos usam Markdown padrao e preferem caminhos absolutos relativos a raiz, como `/sources/video.md`.
+
+## Uso
+
+```text
+Use $notebooklm-to-notes para transformar o notebook "Curso X" em um bundle OKF em C:\Notas.
+Use $notebooklm-to-notes para extrair o notebook "Curso X" para C:\Notas\curso-x.md.
+```
+
+No segundo caso, a skill cria `C:\Notas\curso-x\` como bundle irmao; nao produz arquivo solto fora do OKF.
 
 ## Validacao
 
 ```powershell
-python .\scripts\validar_nota.py C:\caminho\para\nota.md
-python .\scripts\validar_nota.py --profile okf C:\caminho\para\nota.md
-python .\scripts\validar_nota.py --profile okf --vault-root C:\caminho\do\bundle C:\caminho\do\bundle\nota.md
-python -m unittest discover -s tests
+python -m pip install -r requirements.txt
+python .\scripts\validar_nota.py .\caminho\para\conceito.md
+python .\scripts\validar_nota.py --bundle .\caminho\para\bundle
 ```
 
-## Estrutura
+O modo padrao valida OKF. `--profile portable` existe somente para artefatos legados.
 
-- `SKILL.md`: fluxo principal e perfis de saida.
-- `references/formato-visual.md`: formato visual comum.
-- `references/formato-okf.md`: contrato persistido OKF 0.1.
-- `references/exemplo-gold.md`: exemplo visual existente.
-- `references/exemplo-okf.md`: exemplo visual compativel com OKF.
-- `scripts/validar_nota.py`: validador sem dependencias externas.
+## Destinos
+
+- **Obsidian:** abre diretamente o bundle; Mermaid e callouts renderizam onde houver suporte.
+- **Markdown:** o bundle e a entrega canonica e portatil.
+- **Notion:** o bundle local e criado primeiro; com conector, a skill publica um espelho em blocos nativos.
+
+## Referencias
+
+- [Especificacao OKF 0.1](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
+- `references/formato-okf.md`
+- `references/formato-visual.md`
+- `references/exemplo-bundle-okf.md`
 
 ## Licenca
 
-Este projeto e licenciado sob a [MIT License](LICENSE).
+[MIT](LICENSE).
