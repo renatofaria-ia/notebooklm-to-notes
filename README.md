@@ -16,7 +16,7 @@ O resultado combina uma estrutura editorial clara com frontmatter mínimo, TL;DR
 Instale a skill no Codex a partir deste repositório:
 
 ```powershell
-python C:\Users\konok\.codex\skills\.system\skill-installer\scripts\install-skill-from-github.py --url https://github.com/renatofaria-ia/yt-to-notebook-skill
+python C:\Users\konok\.codex\skills\.system\skill-installer\scripts\install-skill-from-github.py --url https://github.com/renatofaria-ia/yt-to-notebook-skill --path . --name yt-to-notebook
 ```
 
 Reinicie o Codex após a instalação para que a skill seja descoberta em uma nova sessão.
