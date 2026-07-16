@@ -33,7 +33,7 @@ class ValidatorTests(unittest.TestCase):
             "---\n"
             "type: NotebookLM Summary\n"
             "title: Conceito\n"
-            "description: Uma descricao de teste.\n"
+            "description: Uma descrição de teste.\n"
             "tags: [teste]\n"
             "timestamp: 2026-07-16T12:00:00-03:00\n"
             f"{extra}"
@@ -43,6 +43,10 @@ class ValidatorTests(unittest.TestCase):
 
     def test_valid_bundle_is_conformant(self):
         result = run("--bundle", FIXTURE_BUNDLE)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_pt_br_bundle_fixture_is_valid(self):
+        result = run("--bundle", FIXTURE_BUNDLE, "--pt-br")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_default_profile_validates_okf_concept(self):
@@ -70,7 +74,8 @@ class ValidatorTests(unittest.TestCase):
 
     def test_bundle_relative_absolute_link_is_accepted(self):
         with tempfile.TemporaryDirectory() as folder:
-            note = self.write(folder, "conceito.md", self.concept(body="# Nota\n\nLeia [fonte](/sources/fonte.md).\n\n# Citations\n\n[1] [Fonte](/sources/fonte.md)\n"))
+            body = "# Nota\n\nLeia [fonte](/sources/fonte.md).\n\n# Citations\n\n[1] [Fonte](/sources/fonte.md)\n"
+            note = self.write(folder, "conceito.md", self.concept(body=body))
             self.assertEqual(run(note).returncode, 0)
 
     def test_quoted_yaml_title_with_colon_is_valid(self):
@@ -78,9 +83,11 @@ class ValidatorTests(unittest.TestCase):
             content = self.concept().replace("title: Conceito", 'title: "Conceito: com dois-pontos"')
             note = self.write(folder, "conceito.md", content)
             self.assertEqual(run(note).returncode, 0)
+
     def test_relative_link_is_accepted(self):
         with tempfile.TemporaryDirectory() as folder:
-            note = self.write(folder, "conceito.md", self.concept(body="# Nota\n\nLeia [fonte](./fonte.md).\n\n# Citations\n\n[1] [Fonte](./fonte.md)\n"))
+            body = "# Nota\n\nLeia [fonte](./fonte.md).\n\n# Citations\n\n[1] [Fonte](./fonte.md)\n"
+            note = self.write(folder, "conceito.md", self.concept(body=body))
             self.assertEqual(run(note).returncode, 0)
 
     def test_file_uri_is_rejected(self):
@@ -95,13 +102,14 @@ class ValidatorTests(unittest.TestCase):
 
     def test_broken_link_is_accepted(self):
         with tempfile.TemporaryDirectory() as folder:
-            note = self.write(folder, "conceito.md", self.concept(body="# Nota\n\n[Em breve](/sources/ainda-nao-existe.md)\n\n# Citations\n\n[1] [Em breve](/sources/ainda-nao-existe.md)\n"))
+            body = "# Nota\n\n[Em breve](/sources/ainda-nao-existe.md)\n\n# Citations\n\n[1] [Em breve](/sources/ainda-nao-existe.md)\n"
+            note = self.write(folder, "conceito.md", self.concept(body=body))
             self.assertEqual(run(note).returncode, 0)
 
     def test_reserved_index_cannot_be_concept(self):
         with tempfile.TemporaryDirectory() as folder:
             bundle = Path(folder)
-            self.write(bundle, "index.md", "---\ntype: Conceito\n---\n# Indice\n")
+            self.write(bundle, "index.md", "---\ntype: Conceito\n---\n# Índice\n")
             result = run("--bundle", bundle)
             self.assertEqual(result.returncode, 1)
             self.assertIn("somente okf_version", result.stdout)
@@ -109,20 +117,45 @@ class ValidatorTests(unittest.TestCase):
     def test_log_requires_iso_dates(self):
         with tempfile.TemporaryDirectory() as folder:
             bundle = Path(folder)
-            self.write(bundle, "log.md", "# Directory Update Log\n\n## ontem\n\n* **Creation**: teste\n")
+            self.write(bundle, "log.md", "# Histórico do diretório\n\n## ontem\n\n* **Criação**: teste\n")
             result = run("--bundle", bundle)
             self.assertEqual(result.returncode, 1)
             self.assertIn("YYYY-MM-DD", result.stdout)
 
     def test_wikilink_is_warning_not_error(self):
         with tempfile.TemporaryDirectory() as folder:
-            note = self.write(folder, "conceito.md", self.concept(body="# Nota\n\n[[legado]]\n\n# Citations\n\n[1] [Origem](https://example.com)\n"))
+            body = "# Nota\n\n[[legado]]\n\n# Citations\n\n[1] [Origem](https://example.com)\n"
+            note = self.write(folder, "conceito.md", self.concept(body=body))
             result = run(note)
             self.assertEqual(result.returncode, 0)
             self.assertIn("AVISO wikilink", result.stdout)
 
     def test_existing_mindmap_fixture_fails_in_portable_mode(self):
         self.assertEqual(run("--profile", "portable", MINDMAP).returncode, 1)
+
+    def test_pt_br_mode_rejects_unaccented_narrative(self):
+        with tempfile.TemporaryDirectory() as folder:
+            body = "# Sintese\n\nA sintese orienta a automacao.\n\n# Citations\n"
+            note = self.write(folder, "conceito.md", self.concept(body=body))
+            result = run(note, "--pt-br")
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("síntese", result.stdout)
+            self.assertIn("automação", result.stdout)
+
+    def test_pt_br_mode_allows_valid_demonstrative_esta(self):
+        with tempfile.TemporaryDirectory() as folder:
+            body = "# Nota\n\nEsta s\u00edntese est\u00e1 pronta.\n\n# Citations\n"
+            note = self.write(folder, "conceito.md", self.concept(body=body))
+            self.assertEqual(run(note, "--pt-br").returncode, 0)
+
+    def test_pt_br_mode_ignores_tags_code_and_link_targets(self):
+        with tempfile.TemporaryDirectory() as folder:
+            body = (
+                "# Síntese\n\nA automação está pronta. Veja [a síntese](/sintese.md).\n\n"
+                "```python\nslug = 'automacao'\n```\n\n# Citations\n"
+            )
+            note = self.write(folder, "conceito.md", self.concept("tags: [automacao]\n", body))
+            self.assertEqual(run(note, "--pt-br").returncode, 0)
 
 
 if __name__ == "__main__":

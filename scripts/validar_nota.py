@@ -13,7 +13,7 @@ from typing import Any
 try:
     import yaml
 except ImportError as error:
-    raise SystemExit("PyYAML e obrigatorio. Instale com: pip install -r requirements.txt") from error
+    raise SystemExit("PyYAML é obrigatório. Instale com: pip install -r requirements.txt") from error
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -21,7 +21,28 @@ if hasattr(sys.stdout, "reconfigure"):
 RESERVED = {"index.md", "log.md"}
 DRIVE_PATH = re.compile(r"^[A-Za-z]:[\\/]")
 MARKDOWN_LINK = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
+MARKDOWN_LINK_LABEL = re.compile(r"\[([^\]]*)\]\([^)]+\)")
+FENCED_BLOCK = re.compile(r"^```.*?^```", re.MULTILINE | re.DOTALL)
+INLINE_CODE = re.compile(r"`[^`]*`")
 ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+# O modo --pt-br protege a escrita humana da skill. Identificadores, tags,
+# URLs e blocos de código ficam fora da verificação.
+PT_BR_REQUIRED_ACCENTS = {
+    "acao": "ação", "acoes": "ações", "alegacao": "alegação", "alegacoes": "alegações",
+    "analise": "análise", "automacao": "automação", "autenticacao": "autenticação",
+    "citacao": "citação", "citacoes": "citações", "conteudo": "conteúdo", "conteudos": "conteúdos",
+    "conversao": "conversão", "criacao": "criação", "demonstracao": "demonstração",
+    "descricao": "descrição", "diretorio": "diretório", "extracao": "extração", "facil": "fácil",
+    "geracao": "geração", "indexacao": "indexação", "informacao": "informação", "ingestao": "ingestão",
+    "integracao": "integração", "memoria": "memória", "nao": "não", "operacao": "operação",
+    "operacoes": "operações", "orquestracao": "orquestração", "padrao": "padrão",
+    "proveniencia": "proveniência", "publicacao": "publicação", "relacao": "relação",
+    "relacoes": "relações", "revisao": "revisão", "selecao": "seleção", "sessao": "sessão",
+    "sintese": "síntese", "tambem": "também", "usuario": "usuário", "usuarios": "usuários",
+    "util": "útil", "validacao": "validação", "video": "vídeo", "videos": "vídeos",
+    "visao": "visão", "voce": "você",
+}
 
 
 @dataclass
@@ -46,7 +67,7 @@ def split_frontmatter(text: str) -> tuple[dict[str, Any] | None, str, str | None
             try:
                 value = yaml.safe_load(raw_yaml)
             except yaml.YAMLError as error:
-                return None, "", f"frontmatter YAML invalido: {error.problem or 'erro de sintaxe'}"
+                return None, "", f"frontmatter YAML inválido: {error.problem or 'erro de sintaxe'}"
             if value is None:
                 value = {}
             if not isinstance(value, dict):
@@ -60,14 +81,14 @@ def read_utf8(path: Path) -> tuple[str | None, Report]:
     try:
         raw = path.read_bytes()
     except FileNotFoundError:
-        report.errors.append("arquivo nao encontrado")
+        report.errors.append("arquivo não encontrado")
         return None, report
     if raw.startswith(b"\xef\xbb\xbf"):
-        report.errors.append("UTF-8 BOM nao permitido")
+        report.errors.append("UTF-8 BOM não permitido")
     try:
         return raw.decode("utf-8"), report
     except UnicodeDecodeError:
-        report.errors.append("arquivo nao e legivel em UTF-8")
+        report.errors.append("arquivo não é legível em UTF-8")
         return None, report
 
 
@@ -88,7 +109,7 @@ def validate_editorial(text: str, report: Report) -> None:
         if "://" not in line
     )
     if "\ufffd" in text or mojibake or "??" in text or broken_question:
-        report.errors.append("possivel corrupcao de UTF-8")
+        report.errors.append("possível corrupção de UTF-8")
     blocks = re.findall(r"^```mermaid\s*\n(.*?)^```", text, re.MULTILINE | re.DOTALL)
     if any(entity in block for block in blocks for entity in ("&quot;", "&amp;", "&lt;", "&gt;", "&#")):
         report.errors.append("entidade HTML dentro de Mermaid")
@@ -97,17 +118,34 @@ def validate_editorial(text: str, report: Report) -> None:
         and any(line.strip().startswith('"') and line.strip().endswith('"') for line in block.splitlines())
         for block in blocks
     ):
-        report.errors.append("rotulo entre aspas no mindmap")
+        report.errors.append("rótulo entre aspas no mindmap")
 
 
 def validate_links(text: str, report: Report) -> None:
     for target in MARKDOWN_LINK.findall(text):
         target = target.strip()
         if target.lower().startswith("file://") or DRIVE_PATH.match(target):
-            report.errors.append("caminho local do sistema nao permitido em links OKF")
+            report.errors.append("caminho local do sistema não permitido em links OKF")
             break
     if "[[" in text:
-        report.warnings.append("wikilink encontrado; prefira link Markdown padrao do OKF")
+        report.warnings.append("wikilink encontrado; prefira link Markdown padrão do OKF")
+
+
+def narrative_for_ptbr(text: str) -> str:
+    """Extrai a escrita humana, ignorando citações, links, código e URLs."""
+    text = re.split(r"^# Citations\s*$", text, maxsplit=1, flags=re.MULTILINE)[0]
+    text = FENCED_BLOCK.sub("", text)
+    text = INLINE_CODE.sub("", text)
+    text = MARKDOWN_LINK_LABEL.sub(r"\1", text)
+    return re.sub(r"https?://\S+", "", text)
+
+
+def validate_ptbr(text: str, report: Report) -> None:
+    narrative = narrative_for_ptbr(text)
+    for ascii_form, accented_form in PT_BR_REQUIRED_ACCENTS.items():
+        pattern = rf"(?<![A-Za-zÀ-ÿ]){re.escape(ascii_form)}(?![A-Za-zÀ-ÿ])"
+        if re.search(pattern, narrative, re.IGNORECASE):
+            report.errors.append(f"pt-BR: use '{accented_form}' em vez de '{ascii_form}'")
 
 
 def valid_timestamp(value: Any) -> bool:
@@ -122,7 +160,7 @@ def valid_timestamp(value: Any) -> bool:
         return False
 
 
-def validate_concept(path: Path) -> Report:
+def validate_concept(path: Path, enforce_ptbr: bool = False) -> Report:
     text, report = read_utf8(path)
     if text is None:
         return report
@@ -135,7 +173,7 @@ def validate_concept(path: Path) -> Report:
         return report
     type_value = metadata.get("type")
     if not isinstance(type_value, str) or not type_value.strip():
-        report.errors.append("conceito OKF exige type nao vazio")
+        report.errors.append("conceito OKF exige type não vazio")
     for key in ("title", "description"):
         if key not in metadata:
             report.warnings.append(f"campo recomendado ausente: {key}")
@@ -147,12 +185,15 @@ def validate_concept(path: Path) -> Report:
         report.warnings.append("timestamp deveria usar ISO 8601")
     validate_editorial(body, report)
     validate_links(body, report)
+    if enforce_ptbr:
+        human_metadata = "\n".join(str(metadata.get(key, "")) for key in ("title", "description"))
+        validate_ptbr(f"{human_metadata}\n{body}", report)
     if "# Citations" not in body:
-        report.warnings.append("sem # Citations; inclua fontes para alegacoes externas")
+        report.warnings.append("sem # Citations; inclua fontes para alegações externas")
     return report
 
 
-def validate_index(path: Path, bundle_root: Path) -> Report:
+def validate_index(path: Path, bundle_root: Path, enforce_ptbr: bool = False) -> Report:
     text, report = read_utf8(path)
     if text is None:
         return report
@@ -162,20 +203,22 @@ def validate_index(path: Path, bundle_root: Path) -> Report:
         return report
     if metadata is not None:
         if path.parent != bundle_root:
-            report.errors.append("index.md fora da raiz nao pode ter frontmatter")
+            report.errors.append("index.md fora da raiz não pode ter frontmatter")
         elif set(metadata) != {"okf_version"} or str(metadata.get("okf_version")) != "0.1":
             report.errors.append("frontmatter do index raiz deve conter somente okf_version: '0.1'")
     elif path.parent == bundle_root:
         report.warnings.append("index raiz sem okf_version: '0.1'")
     if not re.search(r"^# .+", body, re.MULTILINE):
-        report.errors.append("index.md exige pelo menos uma secao H1")
+        report.errors.append("index.md exige pelo menos uma seção H1")
     if not re.search(r"^\s*[*-] \[[^\]]+\]\([^)]+\)\s*-\s+.+", body, re.MULTILINE):
-        report.errors.append("index.md exige itens Markdown com descricao")
+        report.errors.append("index.md exige itens Markdown com descrição")
     validate_links(body, report)
+    if enforce_ptbr:
+        validate_ptbr(body, report)
     return report
 
 
-def validate_log(path: Path) -> Report:
+def validate_log(path: Path, enforce_ptbr: bool = False) -> Report:
     text, report = read_utf8(path)
     if text is None:
         return report
@@ -184,9 +227,9 @@ def validate_log(path: Path) -> Report:
         report.errors.append(frontmatter_error)
         return report
     if metadata is not None:
-        report.errors.append("log.md nao pode ter frontmatter")
+        report.errors.append("log.md não pode ter frontmatter")
     if not re.search(r"^# .+", body, re.MULTILINE):
-        report.errors.append("log.md exige titulo H1")
+        report.errors.append("log.md exige título H1")
     dates = re.findall(r"^## (.+)$", body, re.MULTILINE)
     if not dates:
         report.errors.append("log.md exige ao menos uma data ISO 8601")
@@ -195,35 +238,39 @@ def validate_log(path: Path) -> Report:
     elif dates != sorted(dates, reverse=True):
         report.errors.append("datas de log.md devem estar da mais recente para a mais antiga")
     if dates and not re.search(r"^\* \*\*.+?\*\*:", body, re.MULTILINE):
-        report.errors.append("log.md exige entradas em lista com rotulo em negrito")
+        report.errors.append("log.md exige entradas em lista com rótulo em negrito")
     validate_links(body, report)
+    if enforce_ptbr:
+        validate_ptbr(body, report)
     return report
 
 
-def validate_path(path: Path, bundle_root: Path | None, profile: str) -> Report:
+def validate_path(path: Path, bundle_root: Path | None, profile: str, enforce_ptbr: bool = False) -> Report:
     if profile == "portable":
         text, report = read_utf8(path)
         if text is not None:
             validate_editorial(text, report)
+            if enforce_ptbr:
+                validate_ptbr(text, report)
         return report
     if path.name.lower() == "index.md":
-        return validate_index(path, bundle_root or path.parent)
+        return validate_index(path, bundle_root or path.parent, enforce_ptbr)
     if path.name.lower() == "log.md":
-        return validate_log(path)
-    return validate_concept(path)
+        return validate_log(path, enforce_ptbr)
+    return validate_concept(path, enforce_ptbr)
 
 
-def validate_bundle(bundle_root: Path) -> Report:
+def validate_bundle(bundle_root: Path, enforce_ptbr: bool = False) -> Report:
     report = Report()
     if not bundle_root.is_dir():
-        report.errors.append("bundle nao encontrado ou nao e diretorio")
+        report.errors.append("bundle não encontrado ou não é diretório")
         return report
     markdown_files = sorted(bundle_root.rglob("*.md"))
     if not markdown_files:
-        report.errors.append("bundle nao contem arquivos Markdown")
+        report.errors.append("bundle não contém arquivos Markdown")
         return report
     for path in markdown_files:
-        report.extend(validate_path(path, bundle_root, "okf"), f"{path.relative_to(bundle_root)}: ")
+        report.extend(validate_path(path, bundle_root, "okf", enforce_ptbr), f"{path.relative_to(bundle_root)}: ")
     root_names = {path.name.lower() for path in markdown_files if path.parent == bundle_root}
     for reserved in RESERVED:
         if reserved not in root_names:
@@ -245,16 +292,17 @@ def main() -> int:
     parser.add_argument("arquivo", nargs="?", type=Path, help="conceito ou arquivo reservado")
     parser.add_argument("--bundle", type=Path, help="valida todos os Markdown de um bundle OKF")
     parser.add_argument("--profile", choices=("okf", "portable"), default="okf")
+    parser.add_argument("--pt-br", action="store_true", help="bloqueia palavras pt-BR sem acentos na escrita humana")
     parser.add_argument("--vault-root", type=Path, help=argparse.SUPPRESS)
     args = parser.parse_args()
     if bool(args.arquivo) == bool(args.bundle):
-        parser.error("informe um arquivo ou --bundle <diretorio>")
+        parser.error("informe um arquivo ou --bundle <diretório>")
     if args.bundle:
         print(f"Validando bundle: {args.bundle} (OKF 0.1)")
-        report = validate_bundle(args.bundle)
+        report = validate_bundle(args.bundle, args.pt_br)
     else:
         print(f"Validando: {args.arquivo} (perfil {args.profile})")
-        report = validate_path(args.arquivo, args.vault_root, args.profile)
+        report = validate_path(args.arquivo, args.vault_root, args.profile, args.pt_br)
     print_report(report)
     return 1 if report.errors else 0
 

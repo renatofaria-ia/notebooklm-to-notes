@@ -2,4 +2,4 @@
 
 ## 2026-07-16
 
-* **Creation**: Criado bundle de teste para validacao OKF.
+* **Creation**: Criado bundle de teste para validação OKF.

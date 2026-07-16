@@ -7,7 +7,7 @@ pesquisa-claude-notebooklm/
   sintese.md
   sources/
     index.md
-    video-principal.md
+    vídeo-principal.md
 ```
 
 ## `index.md`
@@ -17,10 +17,10 @@ pesquisa-claude-notebooklm/
 okf_version: "0.1"
 ---
 
-# Conteudos
+# conteúdos
 
-* [Sintese](/sintese.md) - Visao geral visual do notebook.
-* [Fontes](/sources/) - Conceitos de proveniencia e texto extraido.
+* [síntese](/sintese.md) - visão geral visual do notebook.
+* [Fontes](/sources/) - Conceitos de proveniência e texto extraido.
 ```
 
 ## `sintese.md`
@@ -29,7 +29,7 @@ okf_version: "0.1"
 ---
 type: NotebookLM Summary
 title: Pesquisa com Claude Code e NotebookLM
-description: Sintese visual de um fluxo de pesquisa baseado em fontes.
+description: síntese visual de um fluxo de pesquisa baseado em fontes.
 tags: [notebooklm, pesquisa]
 timestamp: 2026-07-16T12:00:00-03:00
 notebook_id: id-conhecido
@@ -40,11 +40,11 @@ notebook_id: id-conhecido
 > [!abstract] TL;DR
 > O agente orquestra; o NotebookLM analisa as fontes; o bundle preserva o conhecimento.
 
-Leia a [fonte principal](/sources/video-principal.md).
+Leia a [fonte principal](/sources/vídeo-principal.md).
 
 # Citations
 
-[1] [Fonte principal](/sources/video-principal.md)
+[1] [Fonte principal](/sources/vídeo-principal.md)
 ```
 
 ## `log.md`

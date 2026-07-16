@@ -2,7 +2,7 @@
 okf_version: "0.1"
 ---
 
-# Conteudos
+# conteúdos
 
-* [Sintese](/sintese.md) - Visao geral visual do notebook.
-* [Fontes](/sources/) - Conceitos que registram a proveniencia.
+* [síntese](/sintese.md) - visão geral visual do notebook.
+* [Fontes](/sources/) - Conceitos que registram a proveniência.
