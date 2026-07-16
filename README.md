@@ -1,4 +1,4 @@
-# yt-to-notebook
+# notebooklm-to-notes
 
 Skill para transformar o conteúdo de notebooks do NotebookLM em notas visuais, fiéis e fáceis de consultar.
 
@@ -16,7 +16,7 @@ O resultado combina uma estrutura editorial clara com frontmatter mínimo, TL;DR
 Instale a skill no Codex a partir deste repositório:
 
 ```powershell
-python C:\Users\konok\.codex\skills\.system\skill-installer\scripts\install-skill-from-github.py --url https://github.com/renatofaria-ia/yt-to-notebook-skill --path . --name yt-to-notebook
+python C:\Users\konok\.codex\skills\.system\skill-installer\scripts\install-skill-from-github.py --url https://github.com/renatofaria-ia/notebooklm-to-notes --path . --name notebooklm-to-notes
 ```
 
 Reinicie o Codex após a instalação para que a skill seja descoberta em uma nova sessão.
@@ -26,7 +26,7 @@ Reinicie o Codex após a instalação para que a skill seja descoberta em uma no
 Use pedidos naturais, por exemplo:
 
 ```text
-Use $yt-to-notebook para transformar o notebook "Aprendizados de vendas" em uma nota na pasta C:\Obsidian\Conhecimento.
+Use $notebooklm-to-notes para transformar o notebook "Aprendizados de vendas" em uma nota na pasta C:\Obsidian\Conhecimento.
 ```
 
 Ou:

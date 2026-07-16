@@ -1,9 +1,9 @@
 ---
-name: yt-to-notebook
-description: Converta o conteúdo de um notebook do NotebookLM em uma nota visual, fiel e digerível com frontmatter, TL;DR, Mermaid, callouts, tabelas, emojis e mindmap. Use quando o usuário quiser extrair, transferir ou transformar conhecimento de um notebook do NotebookLM para Obsidian, Markdown ou Notion, inclusive ao pedir "jogar o conhecimento do notebook X" ou "yt-to-notebook".
+name: notebooklm-to-notes
+description: Converta o conteúdo de um notebook do NotebookLM em uma nota visual, fiel e digerível com frontmatter, TL;DR, Mermaid, callouts, tabelas, emojis e mindmap. Use quando o usuário quiser extrair, transferir ou transformar conhecimento de um notebook do NotebookLM para Obsidian, Markdown ou Notion, inclusive ao pedir "jogar o conhecimento do notebook X" ou "notebooklm-to-notes".
 ---
 
-# yt-to-notebook — do NotebookLM para uma nota visual (no destino que o usuário escolher)
+# notebooklm-to-notes — do NotebookLM para uma nota visual (no destino que o usuário escolher)
 
 Esta skill pega o conhecimento de um **notebook do NotebookLM** e o reescreve naquele **formato visual e digerível** (TL;DR + diagramas Mermaid + callouts + tabelas + emojis + mindmap), entregando **onde o usuário quiser**: numa pasta do Obsidian, como arquivo `.md` solto, ou no Notion via conector.
 

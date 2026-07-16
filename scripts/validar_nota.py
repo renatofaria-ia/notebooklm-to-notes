@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validador estrutural de notas no formato yt-to-notebook.
+"""Validador estrutural de notas no formato notebooklm-to-notes.
 
 Uso:
     python3 validar_nota.py <arquivo.md>

@@ -1,7 +1,7 @@
 interface:
   display_name: "NotebookLM para nota visual"
   short_description: "Transforme notebooks em notas visuais e fiéis"
-  default_prompt: "Use $yt-to-notebook para transformar um notebook do NotebookLM em uma nota visual no destino que eu indicar."
+  default_prompt: "Use $notebooklm-to-notes para transformar um notebook do NotebookLM em uma nota visual no destino que eu indicar."
 
 policy:
   allow_implicit_invocation: true
