@@ -64,6 +64,28 @@ def main() -> int:
     else:
         infos.append("sem caractere cirílico/grego acidental")
 
+    # UTF-8 corruption is structural: never deliver text degraded by a terminal code page.
+    mojibake = re.search(r"(?:\u00c3[\x80-\xbf]|\u00c2[\x80-\xbf]|\u00e2[\x80-\xbf]{2}|\u00f0\u0178)", s)
+    internal_question_mark = any(
+        re.search(r"(?<=[A-Za-z\u00c0-\u00ff])\?(?=[A-Za-z\u00c0-\u00ff])", line)
+        for line in s.splitlines()
+        if "://" not in line
+    )
+    if chr(0xfffd) in s or mojibake or "??" in s or internal_question_mark:
+        erros.append("possible UTF-8 corruption: re-extract and save as UTF-8 before delivery")
+    else:
+        infos.append("no sign of UTF-8 corruption")
+
+    # Mermaid source must never contain HTML entities or quoted mindmap labels.
+    mermaid_blocks = re.findall(r"^```mermaid\s*\n(.*?)^```", s, re.MULTILINE | re.DOTALL)
+    entities = ("&quot;", "&amp;", "&lt;", "&gt;", "&#")
+    if any(entity in block for block in mermaid_blocks for entity in entities):
+        erros.append("HTML entity inside Mermaid: use literal text")
+    if any(re.match(r"\s*mindmap\s*$", block) and re.search(r'^\s*".*"\s*$', block, re.MULTILINE) for block in mermaid_blocks):
+        erros.append("quoted mindmap label: use a simple unquoted label")
+    if mermaid_blocks:
+        infos.append("Mermaid blocks have no HTML entities or quoted mindmap labels")
+
     # Mermaid — recomendado
     n_mermaid = len(re.findall(r"^```mermaid", s, re.MULTILINE))
     if n_mermaid:

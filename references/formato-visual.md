@@ -168,3 +168,14 @@ O mesmo conteúdo, sintaxe adaptada ao alvo:
 | Frontmatter YAML | ✅ | ✅ (inerte) | vira propriedades |
 
 **Regra geral:** Obsidian e `.md` solto → markdown Obsidian-flavored (callouts + Mermaid). Notion → blocos nativos via conector (se disponível). Destino desconhecido → markdown portátil, ciente de que callouts degradam para blockquotes (continua legível). Nunca use `[[wikilinks]]` ou `#hub/tags` fora de um vault Obsidian que os use.
+
+
+## Pre-flight de codificacao e Mermaid
+
+Antes de entregar:
+
+1. Grave o Markdown em UTF-8. Se vier de CLI/API, capture bytes e decodifique explicitamente como UTF-8; nao passe o conteudo por um terminal com code page desconhecido.
+2. Pare se houver `?` dentro de palavras, `??`, `?`, `?`, `?`, `?` ou `??`; reextraia a fonte e regrave o arquivo.
+3. Dentro de Mermaid, nunca use `&quot;`, `&amp;`, `&lt;` ou `&gt;`.
+4. Em `mindmap`, escreva rotulos simples sem aspas: `Claude Code`, nao `"Claude Code"`.
+5. Rode `scripts/validar_nota.py` e corrija todo erro antes da entrega.

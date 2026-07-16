@@ -61,6 +61,7 @@ Se o usuário não disse onde quer, **pergunte**: pasta no Obsidian? arquivo `.m
 - Escreva o arquivo no caminho que o usuário indicar. Use **frontmatter mínimo**: `titulo`, `fonte`, `data`. Nada de tags, `hub` ou índice — a menos que o usuário tenha esse sistema **e peça**.
 - O markdown é Obsidian-flavored: callouts (`> [!...]`) e Mermaid renderizam nativamente no Obsidian, sem plugin (basta abrir em Reading view ou Live Preview).
 - Rode o validador: `python <skill-dir>/scripts/validar_nota.py <arquivo.md>` e corrija o que ele apontar. Se o ambiente só expuser `python3`, use esse comando equivalente.
+- **Pre-entrega obrigatoria:** grave em UTF-8 e execute o validador. Ao consumir saida de CLI/API, capture bytes e decodifique explicitamente como UTF-8; nunca deixe o code page do terminal recodificar a saida.
 
 ### Notion (via conector)
 - O Notion **não** entende a sintaxe `> [!...]` do Obsidian. Se houver um conector (MCP) do Notion disponível nesta sessão, crie a página mapeando a estrutura para **blocos nativos do Notion**: callout nativo no lugar dos callouts, bloco de código `mermaid` para os diagramas, tabela do Notion e toggles para seções longas.
@@ -76,6 +77,8 @@ Ao final, **reporte**: o que foi criado e onde, um mini-checklist de fidelidade 
 - **Perder conteúdo.** Fidelidade > brevidade. Na dúvida entre cortar e manter, mantenha.
 - **Assumir a estrutura do vault de alguém.** Sem pastas fixas, sem `#hub/...`, sem índice automático — a menos que o usuário tenha e peça.
 - **Mermaid quebrado.** Use `<br/>` (não `\n`) pra quebra de linha; no `mindmap`, evite `( ) [ ] = : /` nos rótulos. Detalhes e exemplos em `formato-visual.md`.
+- **HTML dentro do Mermaid.** Nunca use `&quot;`, `&amp;`, `&lt;` ou `&gt;`. Em `mindmap`, use rotulos simples, sem aspas.
+- **Texto degradado.** Nunca entregue `?` dentro de palavras, `??`, `?` ou mojibake. Reextraia a fonte em UTF-8 e regrave o arquivo.
 - **Inventar a fonte.** Cite de qual notebook/fonte o conhecimento veio.
 - **Pular a validação** em destinos markdown.
 
