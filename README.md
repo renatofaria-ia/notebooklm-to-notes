@@ -1,73 +1,40 @@
 # notebooklm-to-notes
 
-Skill para transformar o conteúdo de notebooks do NotebookLM em notas visuais, fiéis e fáceis de consultar.
+Skill para transformar conhecimento de notebooks do NotebookLM em notas Markdown visuais, fieis e faceis de consultar.
 
-O resultado combina uma estrutura editorial clara com frontmatter mínimo, TL;DR, diagramas Mermaid, callouts, tabelas, emojis, mindmap e uma cola rápida. O destino é escolha do usuário: uma pasta do Obsidian, um arquivo Markdown ou uma página do Notion quando houver conector disponível.
+## Perfis de saida
 
-## O que ela faz
+- `portable` (padrao): Markdown visual generico e portatil. Mantem a compatibilidade atual.
+- `obsidian`: Markdown visual para Obsidian. Callouts e Mermaid sao permitidos. Use wikilinks somente quando o usuario pedir e o vault os utilizar.
+- `okf`: Markdown visual compativel com o nucleo OKF 0.1. Mermaid e callouts seguem permitidos como extensoes visuais documentadas; o contrato persistido exige YAML valido, `type`, H1, proveniencia explicita e links Markdown relativos.
 
-1. Localiza o notebook e lê integralmente suas fontes pelo NotebookLM CLI.
-2. Inventaria conceitos, exemplos, números e metáforas para preservar a fidelidade.
-3. Reescreve o material em PT-BR no formato visual canônico.
-4. Adapta a entrega ao destino e valida arquivos Markdown antes da entrega.
-
-## Instalação
-
-Instale a skill no Codex a partir deste repositório:
-
-```powershell
-python C:\Users\konok\.codex\skills\.system\skill-installer\scripts\install-skill-from-github.py --url https://github.com/renatofaria-ia/notebooklm-to-notes --path . --name notebooklm-to-notes
-```
-
-Reinicie o Codex após a instalação para que a skill seja descoberta em uma nova sessão.
+O perfil `okf` e uma escolha explicita. Ele nao altera o comportamento padrao dos perfis `portable` e `obsidian`.
 
 ## Como usar
 
-Use pedidos naturais, por exemplo:
-
 ```text
-Use $notebooklm-to-notes para transformar o notebook "Aprendizados de vendas" em uma nota na pasta C:\Obsidian\Conhecimento.
+Use $notebooklm-to-notes para transformar o notebook "Curso X" em uma nota portable em C:\Notas\curso-x.md.
+Use $notebooklm-to-notes com perfil okf para entregar uma nota no caminho informado pelo bundle.
 ```
 
-Ou:
-
-```text
-Pegue o conteúdo do notebook "Curso X" no NotebookLM e entregue como Markdown em C:\Notas\curso-x.md.
-```
-
-Se o destino não for informado, a skill pergunta se a entrega deve ir para Obsidian, arquivo Markdown ou Notion.
-
-## Estrutura
-
-```text
-.
-├── SKILL.md                       # fluxo principal da skill
-├── agents/openai.yaml             # metadados da interface do Codex
-├── references/
-│   ├── formato-visual.md          # especificação do formato
-│   └── exemplo-gold.md            # referência completa de qualidade
-├── scripts/
-│   └── validar_nota.py            # validador estrutural de Markdown
-└── tests/
-    └── nota-valida.md             # fixture para o validador
-```
-
-## Validação
-
-Para validar uma nota Markdown produzida pela skill:
+## Validacao
 
 ```powershell
 python .\scripts\validar_nota.py C:\caminho\para\nota.md
+python .\scripts\validar_nota.py --profile okf C:\caminho\para\nota.md
+python .\scripts\validar_nota.py --profile okf --vault-root C:\caminho\do\bundle C:\caminho\do\bundle\nota.md
+python -m unittest discover -s tests
 ```
 
-O validador verifica H1, fences, caracteres não latinos acidentais, Mermaid, callouts e frontmatter. Avisos não impedem a entrega; erros estruturais retornam código 1.
+## Estrutura
 
-## Limites e integrações
+- `SKILL.md`: fluxo principal e perfis de saida.
+- `references/formato-visual.md`: formato visual comum.
+- `references/formato-okf.md`: contrato persistido OKF 0.1.
+- `references/exemplo-gold.md`: exemplo visual existente.
+- `references/exemplo-okf.md`: exemplo visual compativel com OKF.
+- `scripts/validar_nota.py`: validador sem dependencias externas.
 
-- É necessária uma sessão autenticada na CLI do NotebookLM para extrair conteúdo.
-- O Notion só recebe blocos nativos quando houver um conector Notion/MCP disponível na sessão. Sem conector, a skill entrega Markdown portátil para colagem manual.
-- Mermaid é preservado como bloco de código para que o destino o renderize quando suportado.
+## Licenca
 
-## Licença
-
-Este repositório ainda não declara uma licença. Antes de reutilizá-lo ou distribuí-lo fora do seu contexto, defina uma licença apropriada.
+Este projeto e licenciado sob a [MIT License](LICENSE).

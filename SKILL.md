@@ -87,3 +87,13 @@ Ao final, **reporte**: o que foi criado e onde, um mini-checklist de fidelidade 
 - `references/formato-visual.md` — a especificação do formato (leia na Fase 2).
 - `references/exemplo-gold.md` — exemplo-ouro completo (leia na Fase 2).
 - `scripts/validar_nota.py` — validador estrutural do markdown gerado (rode na Fase 3).
+
+## Perfis de saida
+
+Antes de escrever, pergunte ou infira o perfil: `portable`, `obsidian` ou `okf`. O padrao permanece `portable` quando nao houver escolha explicita.
+
+- `portable`: mantenha Markdown visual generico e o frontmatter minimo atual como exemplo.
+- `obsidian`: mantenha callouts e Mermaid; use wikilinks somente quando o usuario pedir e o vault os utilizar.
+- `okf`: leia `references/formato-okf.md` e `references/formato-visual.md`. Aplique o contrato OKF 0.1: UTF-8 sem BOM, frontmatter com `type` nao vazio, H1, proveniencia explicita, links Markdown relativos e nenhum wikilink. Nunca entregue `index.md` ou `log.md` na raiz do bundle. Nao imponha pastas, hubs, tags ou indices. Rode `python scripts/validar_nota.py --profile okf --vault-root <bundle> <arquivo>` quando a raiz for conhecida; caso contrario, omita apenas `--vault-root`.
+
+No perfil `okf`, informe que Mermaid e callouts foram usados como extensoes visuais. Eles nao podem ser necessarios para entender o conteudo essencial.

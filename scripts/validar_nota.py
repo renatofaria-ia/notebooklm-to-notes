@@ -1,139 +1,118 @@
 #!/usr/bin/env python3
-"""Validador estrutural de notas no formato notebooklm-to-notes.
+"""Validador estrutural para notas portable, obsidian e OKF."""
+from __future__ import annotations
 
-Uso:
-    python3 validar_nota.py <arquivo.md>
-
-Confere as marcas do formato (H1, Mermaid, callouts, fences balanceados) e
-pega erros comuns (fences quebrados, caractere não-latino acidental como um
-cirílico que escapou no lugar de uma letra latina).
-
-Filosofia de saída:
-- exit 1  -> quebra estrutural objetiva (corrija antes de entregar):
-             fences ``` desbalanceados, sem H1, ou caractere cirílico/grego acidental.
-- exit 0  -> estrutura ok. Pode trazer avisos (⚠️) — o formato fica melhor com
-             pelo menos 1 diagrama Mermaid e 1 callout, mas não é erro fatal.
-- exit 2  -> uso incorreto / arquivo não encontrado.
-
-Não exige tags, hub, índice nem pasta específica — o formato é portátil; a
-organização é decisão do usuário.
-"""
+import argparse
 import re
 import sys
+from pathlib import Path
 
-
-# O formato usa emojis; force uma saída UTF-8 mesmo no console Windows legado.
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
 
-def main() -> int:
-    if len(sys.argv) != 2:
-        print("uso: python3 validar_nota.py <arquivo.md>")
-        return 2
+def frontmatter(text: str) -> tuple[str | None, str | None]:
+    if not text.startswith("---\n") and not text.startswith("---\r\n"):
+        return None, None
+    lines = text.splitlines()
+    for index, line in enumerate(lines[1:], 1):
+        if line == "---":
+            return "\n".join(lines[1:index]), "\n".join(lines[index + 1:])
+    return None, "UNTERMINATED"
 
-    path = sys.argv[1]
+
+def validate(path: Path, profile: str, vault_root: Path | None) -> tuple[list[str], list[str], list[str]]:
+    errors: list[str] = []
+    warnings: list[str] = []
+    infos: list[str] = []
     try:
-        with open(path, encoding="utf-8") as f:
-            s = f.read()
+        raw = path.read_bytes()
     except FileNotFoundError:
-        print(f"❌ arquivo não encontrado: {path}")
-        return 2
-
-    erros, avisos, infos = [], [], []
-
-    # H1 — estrutural
-    if re.search(r"^# .+", s, re.MULTILINE):
-        infos.append("H1 (título) presente")
+        return [f"arquivo nao encontrado: {path}"], warnings, infos
+    if raw.startswith(b"\xef\xbb\xbf"):
+        errors.append("UTF-8 BOM nao permitido")
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return ["arquivo nao e legivel em UTF-8"], warnings, infos
+    if re.search(r"^# .+", text, re.MULTILINE):
+        infos.append("H1 presente")
     else:
-        erros.append("sem H1 (todo nota precisa de um `# Título`)")
-
-    # fences ``` balanceados — estrutural
-    n_fences = len(re.findall(r"^```", s, re.MULTILINE))
-    if n_fences % 2 == 0:
-        infos.append(f"fences ``` balanceados ({n_fences})")
+        errors.append("sem H1")
+    fences = len(re.findall(r"^```", text, re.MULTILINE))
+    if fences % 2:
+        errors.append("fences desbalanceados")
     else:
-        erros.append(f"fences ``` desbalanceados (achei {n_fences}, número ímpar)")
-
-    # caractere não-latino acidental (cirílico U+0400–04FF / grego U+0370–03FF) — estrutural
-    estranhos = sorted(set(re.findall(r"[Ѐ-ӿͰ-Ͽ]", s)))
-    if estranhos:
-        erros.append("caractere não-latino acidental: " + " ".join(estranhos))
+        infos.append(f"fences balanceados ({fences})")
+    if re.search(r"[\u0400-\u04ff\u0370-\u03ff]", text):
+        errors.append("caractere cirilico ou grego acidental")
+    mojibake = re.search(r"(?:\u00c3[\x80-\xbf]|\u00c2[\x80-\xbf]|\u00e2[\x80-\xbf]{2}|\u00f0\u0178)", text)
+    broken_question = any(re.search(r"(?<=[A-Za-z\u00c0-\u00ff])\?(?=[A-Za-z\u00c0-\u00ff])", line) for line in text.splitlines() if "://" not in line)
+    if "\ufffd" in text or mojibake or "??" in text or broken_question:
+        errors.append("possivel corrupcao de UTF-8")
+    blocks = re.findall(r"^```mermaid\s*\n(.*?)^```", text, re.MULTILINE | re.DOTALL)
+    if any(entity in block for block in blocks for entity in ("&quot;", "&amp;", "&lt;", "&gt;", "&#")):
+        errors.append("entidade HTML dentro de Mermaid")
+    if any(block.lstrip().startswith("mindmap") and any(line.strip().startswith('"') and line.strip().endswith('"') for line in block.splitlines()) for block in blocks):
+        errors.append("rotulo entre aspas no mindmap")
+    fm, body = frontmatter(text)
+    if profile == "okf":
+        if body == "UNTERMINATED":
+            errors.append("frontmatter sem fechamento")
+        elif fm is None:
+            errors.append("frontmatter YAML obrigatorio no perfil okf")
+        else:
+            type_match = re.search(r"^type:\s*(.*?)\s*$", fm, re.MULTILINE)
+            type_value = type_match.group(1).strip() if type_match else ""
+            if (
+                len(type_value) >= 2
+                and type_value[0] == type_value[-1]
+                and type_value[0] in {"\"", "'"}
+            ):
+                type_value = type_value[1:-1].strip()
+            if not type_value:
+                errors.append("campo type obrigatorio e nao vazio")
+        if "[[" in text:
+            errors.append("wikilinks nao permitidos no perfil okf")
+        for target in re.findall(r"\[[^\]]*\]\(([^)]+)\)", text):
+            target = target.strip()
+            if target.startswith("/") or target.lower().startswith("file://") or re.match(r"^[A-Za-z]:[\\/]", target):
+                errors.append("link local absoluto nao permitido no perfil okf")
+                break
+        if vault_root:
+            try:
+                if path.resolve().parent == vault_root.resolve() and path.name.lower() in {"index.md", "log.md"}:
+                    errors.append("index.md e log.md sao reservados na raiz do bundle")
+            except OSError:
+                errors.append("nao foi possivel resolver o caminho do bundle")
     else:
-        infos.append("sem caractere cirílico/grego acidental")
+        if fm is None:
+            warnings.append("sem frontmatter no topo")
+        if not blocks:
+            warnings.append("nenhum diagrama Mermaid")
+        if not re.search(r"^>\s*\[!", text, re.MULTILINE):
+            warnings.append("nenhum callout")
+    return errors, warnings, infos
 
-    # UTF-8 corruption is structural: never deliver text degraded by a terminal code page.
-    mojibake = re.search(r"(?:\u00c3[\x80-\xbf]|\u00c2[\x80-\xbf]|\u00e2[\x80-\xbf]{2}|\u00f0\u0178)", s)
-    internal_question_mark = any(
-        re.search(r"(?<=[A-Za-z\u00c0-\u00ff])\?(?=[A-Za-z\u00c0-\u00ff])", line)
-        for line in s.splitlines()
-        if "://" not in line
-    )
-    if chr(0xfffd) in s or mojibake or "??" in s or internal_question_mark:
-        erros.append("possible UTF-8 corruption: re-extract and save as UTF-8 before delivery")
-    else:
-        infos.append("no sign of UTF-8 corruption")
 
-    # Mermaid source must never contain HTML entities or quoted mindmap labels.
-    mermaid_blocks = re.findall(r"^```mermaid\s*\n(.*?)^```", s, re.MULTILINE | re.DOTALL)
-    entities = ("&quot;", "&amp;", "&lt;", "&gt;", "&#")
-    if any(entity in block for block in mermaid_blocks for entity in entities):
-        erros.append("HTML entity inside Mermaid: use literal text")
-    quoted_mindmap_label = any(
-        block.lstrip().startswith("mindmap")
-        and any(line.strip().startswith('"') and line.strip().endswith('"') for line in block.splitlines())
-        for block in mermaid_blocks
-    )
-    if quoted_mindmap_label:
-        erros.append("quoted mindmap label: use a simple unquoted label")
-    elif mermaid_blocks:
-        infos.append("Mermaid blocks have no HTML entities or quoted mindmap labels")
-
-    # Mermaid — recomendado
-    n_mermaid = len(re.findall(r"^```mermaid", s, re.MULTILINE))
-    if n_mermaid:
-        infos.append(f"diagramas Mermaid: {n_mermaid}")
-    else:
-        avisos.append("nenhum diagrama Mermaid (o formato pede ao menos 1, e um mindmap no fim)")
-
-    # Callouts — recomendado
-    n_callouts = len(re.findall(r"^>\s*\[!", s, re.MULTILINE))
-    if n_callouts:
-        infos.append(f"callouts > [!...]: {n_callouts}")
-    else:
-        avisos.append("nenhum callout > [!...] (TL;DR, quote, tip, etc. deixam a nota muito mais legível)")
-
-    # Frontmatter — informativo (não se aplica a Notion)
-    if s.startswith("---"):
-        infos.append("frontmatter YAML no topo")
-    else:
-        avisos.append("sem frontmatter no topo (ok para Notion; em markdown use titulo/fonte/data)")
-
-    # Wikilinks — informativo
-    n_wl = len(re.findall(r"\[\[", s))
-    if n_wl:
-        infos.append(f"wikilinks [[...]]: {n_wl} — só fazem sentido dentro de um vault Obsidian que os use")
-
-    # relatório
-    print(f"\n🔎 Validando: {path}\n")
-    for t in infos:
-        print(f"  ✅ {t}")
-    for t in avisos:
-        print(f"  ⚠️  {t}")
-    for t in erros:
-        print(f"  ❌ {t}")
-
-    if erros:
-        print("\n❌ Quebra estrutural — corrija os itens ❌ acima antes de entregar.\n")
-        return 1
-    if avisos:
-        print("\n⚠️  Estrutura válida, mas vale revisar os avisos acima.\n")
-        return 0
-    print("\n✅ Tudo certo — a nota está no formato.\n")
-    return 0
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--profile", choices=("portable", "obsidian", "okf"), default="portable")
+    parser.add_argument("--vault-root", type=Path)
+    parser.add_argument("arquivo", type=Path)
+    args = parser.parse_args()
+    errors, warnings, infos = validate(args.arquivo, args.profile, args.vault_root)
+    print(f"Validando: {args.arquivo} (perfil {args.profile})")
+    for item in infos:
+        print(f"  OK {item}")
+    for item in warnings:
+        print(f"  AVISO {item}")
+    for item in errors:
+        print(f"  ERRO {item}")
+    return 1 if errors else 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

@@ -179,3 +179,7 @@ Antes de entregar:
 3. Dentro de Mermaid, nunca use `&quot;`, `&amp;`, `&lt;` ou `&gt;`.
 4. Em `mindmap`, escreva rotulos simples sem aspas: `Claude Code`, nao `"Claude Code"`.
 5. Rode `scripts/validar_nota.py` e corrija todo erro antes da entrega.
+
+## Perfis e frontmatter
+
+O frontmatter minimo com titulo, fonte e data e o exemplo dos perfis `portable` e `obsidian`; ele nao e universal. No perfil `okf`, siga `formato-okf.md`: o campo `type` e obrigatorio, a proveniencia e explicita e links internos usam Markdown relativo. Mermaid e callouts permanecem extensoes visuais portaveis; fora do Obsidian, callouts devem continuar legiveis como blockquotes.
