@@ -1,4 +1,4 @@
 interface:
   display_name: "NotebookLM para decks OKF"
-  short_description: "Transforme notebooks em conhecimento progressivo OKF"
-  default_prompt: "Use $notebooklm-to-notes para extrair um notebook em um deck OKF visual de segundo cérebro no destino que eu indicar."
+  short_description: "Extrações integrais, visuais e verificáveis"
+  default_prompt: "Use $notebooklm-to-notes para extrair integralmente um notebook em um deck OKF evidence-first no destino que eu indicar. Preserve a resposta bruta, cubra conceitos, exemplos, números, limites, divergências e lacunas, gere conceitos de todas as fontes prontas e valide com --fidelity --pt-br."

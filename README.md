@@ -1,26 +1,18 @@
 # notebooklm-to-notes
 
-Skill para transformar notebooks do NotebookLM em conhecimento **OKF 0.1** visual, rastreável e pronto para Obsidian, Markdown ou Notion. A versão atual é **v1.1.0**: além do bundle independente, ela suporta um deck hierárquico de segundo cérebro.
+Skill para converter notebooks do NotebookLM em um deck de conhecimento progressivo, visual e rastreável, usando **Open Knowledge Format (OKF) 0.1**. A versão **v1.2.0** adota geração **evidence-first**.
 
-## O que entrega
+## O que a versão 1.2 entrega
 
-- Síntese em PT-BR com TL;DR, callouts, tabelas, Mermaid e mapa mental quando útil.
-- Frontmatter YAML OKF, `index.md`, `log.md`, citações e proveniência do NotebookLM.
-- Resumos por fonte somente após confirmação do usuário, reduzindo trabalho e ruído.
-- Cross-links didáticos entre notebooks, sem banco de grafo, wikilinks ou taxonomia paralela.
-- Validação de UTF-8, YAML, Mermaid, pt-BR e estrutura do deck.
+- Preserva a resposta bruta do NotebookLM em JSON e Markdown, com hash SHA-256.
+- Inventaria todas as fontes e cria automaticamente um conceito para cada fonte pronta.
+- Registra fontes indisponíveis como lacunas explícitas, sem preenchimento inventado.
+- Mantém um ledger de cobertura com conceitos, exemplos, números, limites, divergências e lacunas.
+- Liga cada afirmação da síntese ao item de evidência correspondente.
+- Produz síntese visual em PT-BR: TL;DR, callouts, tabelas, Mermaid, mapa mental e cola rápida quando úteis.
+- Mantém bundles históricos compatíveis, sem migração automática.
 
-## Estruturas de saída
-
-```text
-<bundle>/
-  index.md
-  log.md
-  sintese.md
-  sources/
-    index.md
-    <fonte>.md
-```
+## Estrutura de uma nova extração
 
 ```text
 <deck>/
@@ -31,18 +23,24 @@ Skill para transformar notebooks do NotebookLM em conhecimento **OKF 0.1** visua
     <notebook-slug>/
       index.md
       <notebook-slug>.md
-      sources/                 # criado após confirmação do usuário
+      evidence/
+        index.md
+        raw-response.json
+        raw-response.md
+        source-inventory.json
+        coverage.md
+      sources/
         index.md
         <fonte>.md
 ```
 
-Exemplo:
+A entrega é completa somente se o deck passar:
 
-```text
-Use $notebooklm-to-notes para resumir o notebook "Curso X" no meu deck de segundo cérebro em C:/Notas.
+```powershell
+python .\scripts\validar_nota.py --deck .\caminho\para\deck --fidelity --pt-br
 ```
 
-A skill cria primeiro a síntese do notebook e então pergunta se deve gerar resumos de fontes. Bundles antigos permanecem intactos; não há migração automática.
+Em falha, a resposta bruta e as lacunas permanecem no deck, que é marcado como ```incomplete```.
 
 ## Validação
 
@@ -51,16 +49,17 @@ python -m pip install -r requirements.txt
 python .\scripts\validar_nota.py .\caminho\para\conceito.md
 python .\scripts\validar_nota.py --bundle .\caminho\para\bundle --pt-br
 python .\scripts\validar_nota.py --deck .\caminho\para\deck --pt-br
+python .\scripts\validar_nota.py --deck .\caminho\para\deck --fidelity --pt-br
 ```
 
-`--deck` exige a raiz, índices progressivos, conceito principal de cada notebook, proveniência mínima de fontes e links internos gerados válidos. `--bundle` continua permissivo conforme o OKF.
+```--bundle``` e @@--deck``` preservam o comportamento permissivo para acervos existentes. Consulte [o contrato de fidelidade](references/contrato-fidelidade.md) para o esquema, o prompt e os critérios de conclusão.
 
 ## Referências
 
 - [Especificação OKF 0.1](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
-- `references/formato-okf.md`
-- `references/deck-progressivo.md`
-- `references/exemplo-deck-okf.md`
+- [Contrato de fidelidade](references/contrato-fidelidade.md)
+- [Deck progressivo](references/deck-progressivo.md)
+- [Formato visual](references/formato-visual.md)
 
 ## Licença
 

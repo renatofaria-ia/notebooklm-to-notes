@@ -11,6 +11,7 @@ FIXTURE_BUNDLE = ROOT / "tests" / "fixtures" / "bundle-valido"
 DECK_FIXTURE = ROOT / "tests" / "fixtures" / "deck-valido"
 LEGACY = ROOT / "tests" / "nota-valida.md"
 MINDMAP = ROOT / "tests" / "nota-mindmap-com-aspas.md"
+FIDELITY_FIXTURE = ROOT / "tests" / "fixtures" / "deck-fidelidade-valido"
 
 
 def run(*args):
@@ -199,6 +200,84 @@ class ValidatorTests(unittest.TestCase):
                 encoding="utf-8",
             )
             self.assertEqual(run("--deck", deck).returncode, 0)
+
+    def copy_fidelity_deck(self, folder):
+        deck = Path(folder) / "deck"
+        shutil.copytree(FIDELITY_FIXTURE, deck)
+        return deck
+
+    def test_valid_evidence_first_deck_is_conformant(self):
+        result = run("--deck", FIDELITY_FIXTURE, "--fidelity", "--pt-br")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_fidelity_rejects_invalid_raw_json(self):
+        with tempfile.TemporaryDirectory() as folder:
+            deck = self.copy_fidelity_deck(folder)
+            raw = deck / "notebooks" / "curso-fidelidade" / "evidence" / "raw-response.json"
+            raw.write_text("{", encoding="utf-8")
+            result = run("--deck", deck, "--fidelity")
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("JSON inválido", result.stdout)
+
+    def test_fidelity_rejects_raw_response_hash_mismatch(self):
+        with tempfile.TemporaryDirectory() as folder:
+            deck = self.copy_fidelity_deck(folder)
+            raw = deck / "notebooks" / "curso-fidelidade" / "evidence" / "raw-response.json"
+            raw.write_text(raw.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+            result = run("--deck", deck, "--fidelity")
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("hash de raw-response.json", result.stdout)
+
+    def test_fidelity_rejects_missing_source_concept(self):
+        with tempfile.TemporaryDirectory() as folder:
+            deck = self.copy_fidelity_deck(folder)
+            source = deck / "notebooks" / "curso-fidelidade" / "sources" / "fonte-fidelidade.md"
+            source.unlink()
+            result = run("--deck", deck, "--fidelity")
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("fontes sem conceito", result.stdout)
+
+    def test_fidelity_rejects_missing_evidence_category(self):
+        with tempfile.TemporaryDirectory() as folder:
+            deck = self.copy_fidelity_deck(folder)
+            coverage = deck / "notebooks" / "curso-fidelidade" / "evidence" / "coverage.md"
+            coverage.write_text(coverage.read_text(encoding="utf-8").replace("category: example", "category: invalid", 1), encoding="utf-8")
+            result = run("--deck", deck, "--fidelity")
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("categoria example", result.stdout)
+
+    def test_fidelity_rejects_broken_evidence_destination(self):
+        with tempfile.TemporaryDirectory() as folder:
+            deck = self.copy_fidelity_deck(folder)
+            coverage = deck / "notebooks" / "curso-fidelidade" / "evidence" / "coverage.md"
+            coverage.write_text(coverage.read_text(encoding="utf-8").replace("/notebooks/curso-fidelidade/evidence/coverage.md#c1", "/notebooks/curso-fidelidade/evidence/ausente.md#c1", 1), encoding="utf-8")
+            result = run("--deck", deck, "--fidelity")
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("destination inexistente", result.stdout)
+
+    def test_fidelity_blocks_incomplete_source_gap(self):
+        with tempfile.TemporaryDirectory() as folder:
+            deck = self.copy_fidelity_deck(folder)
+            inventory = deck / "notebooks" / "curso-fidelidade" / "evidence" / "source-inventory.json"
+            inventory.write_text(inventory.read_text(encoding="utf-8").replace('"status": "ready"', '"status": "error"'), encoding="utf-8")
+            source = deck / "notebooks" / "curso-fidelidade" / "sources" / "fonte-fidelidade.md"
+            source.write_text(source.read_text(encoding="utf-8").replace("type: NotebookLM Source", "type: NotebookLM Source Gap").replace("source_status: ready", "source_status: error"), encoding="utf-8")
+            summary = deck / "notebooks" / "curso-fidelidade" / "curso-fidelidade.md"
+            summary.write_text(summary.read_text(encoding="utf-8").replace("source_ready_count: 1", "source_ready_count: 0").replace("source_error_count: 0", "source_error_count: 1"), encoding="utf-8")
+            coverage = deck / "notebooks" / "curso-fidelidade" / "evidence" / "coverage.md"
+            coverage.write_text(coverage.read_text(encoding="utf-8").replace("extraction_status: complete", "extraction_status: incomplete"), encoding="utf-8")
+            result = run("--deck", deck, "--fidelity")
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("bundle incomplete", result.stdout)
+
+    def test_pt_br_checks_mermaid_labels(self):
+        with tempfile.TemporaryDirectory() as folder:
+            fence = chr(96) * 3
+            body = "# Síntese\n\n" + fence + "mermaid\nmindmap\n  root((Sintese))\n" + fence + "\n\n# Citations\n"
+            note = self.write(folder, "conceito.md", self.concept(body=body))
+            result = run(note, "--pt-br")
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("síntese", result.stdout)
 
 
 if __name__ == "__main__":

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import re
 import sys
 from dataclasses import dataclass, field
@@ -186,6 +188,7 @@ def validate_concept(path: Path, enforce_ptbr: bool = False) -> Report:
     validate_editorial(body, report)
     validate_links(body, report)
     if enforce_ptbr:
+        validate_mermaid_ptbr(body, report)
         human_metadata = "\n".join(str(metadata.get(key, "")) for key in ("title", "description"))
         validate_ptbr(f"{human_metadata}\n{body}", report)
     if "# Citations" not in body:
@@ -371,6 +374,214 @@ def validate_deck(deck_root: Path, enforce_ptbr: bool = False) -> Report:
     return report
 
 
+FIDELITY_CATEGORIES = ("concept", "example", "number", "limit", "divergence", "gap")
+FIDELITY_STATUSES = {"represented", "gap"}
+FENCE_MERMAID = re.compile(r"^\`\`\`mermaid\s*\n(.*?)^\`\`\`", re.MULTILINE | re.DOTALL)
+
+
+def validate_mermaid_ptbr(text: str, report: Report) -> None:
+    """Aplica a revisão pt-BR aos rótulos exibidos por Mermaid."""
+    for block in FENCE_MERMAID.findall(text):
+        validate_ptbr(block, report)
+
+
+def read_json_document(path: Path, report: Report, label: str) -> Any | None:
+    text, read_report = read_utf8(path)
+    report.extend(read_report, f"{label}: ")
+    if text is None:
+        return None
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as error:
+        report.errors.append(f"{label}: JSON inválido: {error.msg}")
+        return None
+
+
+def concept_metadata(path: Path, report: Report, label: str) -> tuple[dict[str, Any] | None, str]:
+    text, read_report = read_utf8(path)
+    report.extend(read_report, f"{label}: ")
+    if text is None:
+        return None, ""
+    metadata, body, frontmatter_error = split_frontmatter(text)
+    if frontmatter_error:
+        report.errors.append(f"{label}: {frontmatter_error}")
+        return None, ""
+    if metadata is None:
+        report.errors.append(f"{label}: conceito exige frontmatter YAML")
+        return None, ""
+    return metadata, body
+
+
+def resolve_bundle_target(deck_root: Path, origin: Path, target: str) -> Path | None:
+    target = target.split("#", 1)[0].strip()
+    if not target or "://" in target or target.startswith(("mailto:", "#")):
+        return None
+    return deck_root / target.lstrip("/") if target.startswith("/") else origin.parent / target
+
+
+def validate_fidelity_notebook(deck_root: Path, notebook_dir: Path, report: Report) -> None:
+    slug = notebook_dir.name
+    summary_path = notebook_dir / f"{slug}.md"
+    evidence_dir = notebook_dir / "evidence"
+    sources_dir = notebook_dir / "sources"
+    label = f"notebook {slug}"
+
+    for relative in ("raw-response.json", "raw-response.md", "source-inventory.json", "coverage.md"):
+        if not (evidence_dir / relative).is_file():
+            report.errors.append(f"{label}: fidelity exige evidence/{relative}")
+    if not sources_dir.is_dir() or not (sources_dir / "index.md").is_file():
+        report.errors.append(f"{label}: fidelity exige sources/index.md")
+    if not summary_path.is_file() or not evidence_dir.is_dir():
+        return
+
+    summary_metadata, summary_body = concept_metadata(summary_path, report, f"{label}: síntese")
+    if summary_metadata is not None:
+        for section in ("## Conceitos", "## Exemplos", "## Números e limites", "## Divergências e lacunas", "# Citations"):
+            if section not in summary_body:
+                report.errors.append(f"{label}: síntese exige seção {section}")
+
+    raw_json_path = evidence_dir / "raw-response.json"
+    raw_md_path = evidence_dir / "raw-response.md"
+    inventory_path = evidence_dir / "source-inventory.json"
+    coverage_path = evidence_dir / "coverage.md"
+    if not all(path.is_file() for path in (raw_json_path, raw_md_path, inventory_path, coverage_path)):
+        return
+
+    raw_payload = read_json_document(raw_json_path, report, f"{label}: raw-response.json")
+    inventory = read_json_document(inventory_path, report, f"{label}: source-inventory.json")
+    raw_metadata, raw_body = concept_metadata(raw_md_path, report, f"{label}: raw-response.md")
+    coverage_metadata, coverage_body = concept_metadata(coverage_path, report, f"{label}: coverage.md")
+    if not isinstance(raw_payload, dict) or not isinstance(inventory, dict):
+        return
+    if not isinstance(raw_payload.get("answer"), str):
+        report.errors.append(f"{label}: raw-response.json exige answer textual")
+    if not isinstance(raw_payload.get("references"), list):
+        report.errors.append(f"{label}: raw-response.json exige references como lista")
+    if raw_metadata is not None:
+        if raw_metadata.get("type") != "NotebookLM Raw Response":
+            report.errors.append(f"{label}: raw-response.md exige type NotebookLM Raw Response")
+        expected_hash = raw_metadata.get("raw_response_sha256")
+        actual_hash = hashlib.sha256(raw_json_path.read_bytes()).hexdigest()
+        if expected_hash != actual_hash:
+            report.errors.append(f"{label}: hash de raw-response.json não confere")
+        if not isinstance(raw_metadata.get("query_prompt"), str) or not raw_metadata["query_prompt"].strip():
+            report.errors.append(f"{label}: raw-response.md exige query_prompt")
+        if isinstance(raw_payload.get("answer"), str) and raw_payload["answer"] not in raw_body:
+            report.errors.append(f"{label}: raw-response.md não preserva a resposta literal")
+
+    sources = inventory.get("sources")
+    if not isinstance(sources, list):
+        report.errors.append(f"{label}: source-inventory.json exige sources como lista")
+        return
+    inventory_ids = {
+        source.get("id") for source in sources
+        if isinstance(source, dict) and isinstance(source.get("id"), str) and source["id"].strip()
+    }
+    if len(inventory_ids) != len(sources):
+        report.errors.append(f"{label}: source-inventory.json contém fonte sem id")
+    source_concepts: dict[str, dict[str, Any]] = {}
+    if sources_dir.is_dir():
+        for source_path in sources_dir.glob("*.md"):
+            if source_path.name.lower() in RESERVED:
+                continue
+            metadata, _ = concept_metadata(source_path, report, f"{label}: {source_path.relative_to(deck_root)}")
+            if metadata is not None and isinstance(metadata.get("source_id"), str):
+                source_concepts[metadata["source_id"]] = metadata
+    missing_sources = inventory_ids.difference(source_concepts)
+    if missing_sources:
+        report.errors.append(f"{label}: fontes sem conceito: {', '.join(sorted(missing_sources))}")
+    for source in sources:
+        if not isinstance(source, dict) or not isinstance(source.get("id"), str):
+            continue
+        metadata = source_concepts.get(source["id"])
+        if metadata is None:
+            continue
+        status = str(source.get("status", "")).lower()
+        expected_type = "NotebookLM Source" if status == "ready" else "NotebookLM Source Gap"
+        if metadata.get("type") != expected_type:
+            report.errors.append(f"{label}: fonte {source['id']} exige type {expected_type}")
+        if metadata.get("source_status") != source.get("status"):
+            report.errors.append(f"{label}: fonte {source['id']} possui source_status divergente")
+
+    if summary_metadata is not None:
+        ready_count = sum(1 for source in sources if isinstance(source, dict) and str(source.get("status", "")).lower() == "ready")
+        error_count = len(sources) - ready_count
+        if summary_metadata.get("source_ready_count") != ready_count:
+            report.errors.append(f"{label}: source_ready_count não confere com o inventário")
+        if summary_metadata.get("source_error_count") != error_count:
+            report.errors.append(f"{label}: source_error_count não confere com o inventário")
+
+    if coverage_metadata is None:
+        return
+    if coverage_metadata.get("type") != "NotebookLM Coverage Ledger":
+        report.errors.append(f"{label}: coverage.md exige type NotebookLM Coverage Ledger")
+    extraction_status = coverage_metadata.get("extraction_status")
+    if extraction_status not in {"complete", "incomplete"}:
+        report.errors.append(f"{label}: coverage.md exige extraction_status complete ou incomplete")
+    items = coverage_metadata.get("coverage_items")
+    empty_categories = coverage_metadata.get("empty_categories", {})
+    if not isinstance(items, list):
+        report.errors.append(f"{label}: coverage.md exige coverage_items como lista YAML")
+        return
+    if not isinstance(empty_categories, dict):
+        report.errors.append(f"{label}: empty_categories deve ser mapa YAML")
+        empty_categories = {}
+    categories_present: set[str] = set()
+    has_gap = False
+    for item in items:
+        if not isinstance(item, dict):
+            report.errors.append(f"{label}: item de cobertura inválido")
+            continue
+        item_id = item.get("id")
+        category = item.get("category")
+        status = item.get("status")
+        source_ids = item.get("source_ids")
+        destination = item.get("destination")
+        if not isinstance(item_id, str) or not item_id.strip():
+            report.errors.append(f"{label}: item de cobertura exige id")
+            continue
+        if category not in FIDELITY_CATEGORIES:
+            report.errors.append(f"{label}: item {item_id} tem categoria inválida")
+        else:
+            categories_present.add(category)
+        if status not in FIDELITY_STATUSES:
+            report.errors.append(f"{label}: item {item_id} tem status inválido")
+        if not isinstance(source_ids, list) or not source_ids or not all(source_id in inventory_ids for source_id in source_ids):
+            report.errors.append(f"{label}: item {item_id} exige source_ids existentes")
+        if not isinstance(destination, str) or not destination.strip():
+            report.errors.append(f"{label}: item {item_id} exige destination")
+        else:
+            destination_path = resolve_bundle_target(deck_root, coverage_path, destination)
+            if destination_path is None or not destination_path.exists():
+                report.errors.append(f"{label}: item {item_id} aponta para destination inexistente")
+            if summary_body and f"({destination})" not in summary_body:
+                report.errors.append(f"{label}: síntese não referencia o item {item_id}")
+        if f"## {item_id}" not in coverage_body:
+            report.errors.append(f"{label}: coverage.md exige seção ## {item_id}")
+        if status == "gap":
+            has_gap = True
+            if not isinstance(item.get("gap_reason"), str) or not item["gap_reason"].strip():
+                report.errors.append(f"{label}: item em lacuna exige gap_reason")
+    for category in FIDELITY_CATEGORIES:
+        if category not in categories_present:
+            reason = empty_categories.get(category)
+            if not isinstance(reason, str) or not reason.strip():
+                report.errors.append(f"{label}: categoria {category} sem item ou justificativa")
+    if extraction_status == "complete" and has_gap:
+        report.errors.append(f"{label}: extraction_status complete não aceita lacunas")
+    if extraction_status == "incomplete":
+        report.errors.append(f"{label}: fidelity bloqueia bundle incomplete")
+
+
+def validate_fidelity(deck_root: Path, report: Report) -> None:
+    notebooks_dir = deck_root / "notebooks"
+    if not notebooks_dir.is_dir():
+        report.errors.append("fidelity exige notebooks/")
+        return
+    for notebook_dir in sorted(path for path in notebooks_dir.iterdir() if path.is_dir()):
+        validate_fidelity_notebook(deck_root, notebook_dir, report)
+
+
 def print_report(report: Report) -> None:
     for item in report.infos:
         print(f"  OK {item}")
@@ -385,10 +596,13 @@ def main() -> int:
     parser.add_argument("arquivo", nargs="?", type=Path, help="conceito ou arquivo reservado")
     parser.add_argument("--bundle", type=Path, help="valida todos os Markdown de um bundle OKF")
     parser.add_argument("--deck", type=Path, help="valida a estrutura progressiva de um deck notebooklm-to-notes")
+    parser.add_argument("--fidelity", action="store_true", help="exige evidências completas em um deck")
     parser.add_argument("--profile", choices=("okf", "portable"), default="okf")
     parser.add_argument("--pt-br", action="store_true", help="bloqueia palavras pt-BR sem acentos na escrita humana")
     parser.add_argument("--vault-root", type=Path, help=argparse.SUPPRESS)
     args = parser.parse_args()
+    if args.fidelity and not args.deck:
+        parser.error("--fidelity exige --deck <diretório>")
     selected = sum(value is not None for value in (args.arquivo, args.bundle, args.deck))
     if selected != 1:
         parser.error("informe um arquivo, --bundle <diretório> ou --deck <diretório>")
@@ -398,6 +612,8 @@ def main() -> int:
     elif args.deck:
         print(f"Validando deck: {args.deck} (notebooklm-to-notes)")
         report = validate_deck(args.deck, args.pt_br)
+        if args.fidelity:
+            validate_fidelity(args.deck, report)
     else:
         print(f"Validando: {args.arquivo} (perfil {args.profile})")
         report = validate_path(args.arquivo, args.vault_root, args.profile, args.pt_br)
